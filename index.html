@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recovery Analytics Demo — Anuar Kabidenov</title>
+<meta name="description" content="Demo: debt-recovery KPIs with one set of metric definitions, reconciliation that blocks publishing, an A/B readout with confidence intervals, and automated multi-currency invoicing. Synthetic data.">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface-1: #fcfcfb; --card: #ffffff;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+    --ramp-1: #86b6ef; --ramp-2: #5598e7; --ramp-3: #2a78d6; --ramp-4: #1c5cab;
+    --good: #0ca30c; --good-text: #006300; --critical: #d03b3b; --warning: #fab219;
+    --accent: #2a78d6; --wash: rgba(42,120,214,0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface-1: #1a1a19; --card: #1a1a19;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+      --ramp-1: #184f95; --ramp-2: #1c5cab; --ramp-3: #2a78d6; --ramp-4: #5598e7;
+      --good-text: #0ca30c; --accent: #3987e5; --wash: rgba(57,135,229,0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19; --card: #1a1a19;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --ramp-1: #184f95; --ramp-2: #1c5cab; --ramp-3: #2a78d6; --ramp-4: #5598e7;
+    --good-text: #0ca30c; --accent: #3987e5; --wash: rgba(57,135,229,0.12);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text-primary); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 16px 56px; }
+  header h1 { font-size: 26px; margin: 0 0 4px; }
+  header p { margin: 0; color: var(--text-secondary); }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); margin: 8px 6px 0 0; }
+  .links a { color: var(--accent); margin-right: 14px; font-size: 14px; }
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 22px 0 14px; position: sticky; top: 0; background: var(--page); padding: 8px 0; z-index: 5; }
+  .filters label { font-size: 13px; color: var(--text-secondary); }
+  select, button { font: inherit; font-size: 14px; color: var(--text-primary); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .theme { margin-left: auto; }
+  section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
+  section h2 { font-size: 17px; margin: 0 0 2px; }
+  .lead { margin: 0 0 14px; color: var(--text-secondary); font-size: 14px; }
+  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-1); }
+  .tile .k { font-size: 12px; color: var(--text-secondary); }
+  .tile .v { font-size: 24px; font-weight: 650; margin-top: 2px; }
+  .tile details { margin-top: 4px; font-size: 12px; color: var(--muted); }
+  .tile summary { cursor: pointer; color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; }
+  .chart { width: 100%; height: auto; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-secondary); margin: 6px 0 0; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .tip { position: fixed; pointer-events: none; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; z-index: 20; min-width: 150px; }
+  .tip b { display: block; margin-bottom: 3px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--text-secondary); font-weight: 600; font-size: 13px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .status { font-weight: 600; white-space: nowrap; }
+  .ok { color: var(--good-text); } .bad { color: var(--critical); }
+  .banner { border-radius: 10px; padding: 10px 14px; margin: 12px 0 0; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .banner.ok { background: rgba(12,163,12,.10); } .banner.bad { background: rgba(208,59,59,.10); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .verdict { font-size: 15px; margin: 10px 0 0; }
+  code { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
+  .defs { columns: 2; column-gap: 24px; font-size: 13.5px; color: var(--text-secondary); padding-left: 18px; margin: 6px 0 0; }
+  .defs li { margin: 3px 0; break-inside: avoid; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 18px; }
+  @media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, 1fr); } .grid2 { grid-template-columns: 1fr; } .defs { columns: 1; } .theme { margin-left: 0; } }
+  .scroll { overflow-x: auto; }
+  #funnel { max-width: 460px; }
+  svg text.halo { paint-order: stroke; stroke: var(--card); stroke-width: 4px; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Recovery analytics — one source of truth</h1>
+    <p>A working demo of how I own the numbers in a debt-recovery business: one set of metric definitions, reconciliation that blocks a wrong report, an experiment readout that separates lift from noise, and invoicing that runs itself.</p>
+    <span class="tag">Synthetic data · 4 fictional lenders · 90 days</span><span class="tag">Built single-handedly with Claude Code</span><span class="tag">Plain HTML + JS, no backend</span>
+    <div class="links" style="margin-top:10px">
+      <strong>Anuar Kabidenov</strong> · Product / Data Analyst &nbsp;
+      <a href="https://linkedin.com/in/anuar-kabidenov1302">LinkedIn</a><a href="mailto:anuarkabidenov1302@gmail.com">Email</a><a href="https://github.com/anuar1302/recovery-analytics-demo">Source</a>
+    </div>
+  </header>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <label>Lender <select id="fBank"></select></label>
+    <label>Period <select id="fDays"><option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option></select></label>
+    <button class="theme" id="themeBtn" type="button">Toggle dark mode</button>
+  </div>
+
+  <section>
+    <h2>KPIs — every team computes them the same way</h2>
+    <p class="lead">Each tile is calculated from the single <code>METRICS</code> definition object below — open "how" to see the exact rule.</p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>Weekly recovery rate by lender</h2>
+      <p class="lead">Share of placed balance collected, by week of placement. Hover for values.</p>
+      <svg class="chart" id="lineChart" viewBox="0 0 600 300" role="img" aria-label="Weekly recovery rate by lender"></svg>
+      <div class="legend" id="lineLegend"></div>
+    </section>
+    <section>
+      <h2>Collection funnel</h2>
+      <p class="lead">Accounts at each stage and the drop between stages.</p>
+      <svg class="chart" id="funnel" viewBox="0 0 400 300" role="img" aria-label="Collection funnel"></svg>
+    </section>
+  </div>
+
+  <section>
+    <h2>Reconciliation gate — the report can't publish wrong numbers</h2>
+    <p class="lead">Collected amounts from the analytics pipeline are checked against the payments ledger before anything reaches management. Try breaking the pipeline.</p>
+    <div class="row">
+      <label class="row" style="gap:6px"><input type="checkbox" id="breakIt"> Simulate a broken pipeline (one day of payments loaded twice for Lender C)</label>
+    </div>
+    <div class="scroll"><table id="reconTable" style="margin-top:10px"></table></div>
+    <div id="reconBanner"></div>
+  </section>
+
+  <section>
+    <h2>Experiment readout — real lift or noise?</h2>
+    <p class="lead">50/50 split of new accounts between the current call script (A) and an empathetic opener (B). Metric: share of accounts that paid. Two-proportion z-test, 95% confidence interval.</p>
+    <div class="grid2">
+      <svg class="chart" id="abChart" viewBox="0 0 560 170" role="img" aria-label="Difference in paid rate, B minus A, with 95% confidence interval"></svg>
+      <div class="scroll"><table id="abTable"></table></div>
+    </div>
+    <p class="verdict" id="abVerdict"></p>
+  </section>
+
+  <section>
+    <h2>Automated invoicing — every lender, every currency</h2>
+    <p class="lead">Success fee on collected amounts, billed in each lender's currency and consolidated to USD at a fixed demo rate. Recomputed on every filter change; exports to CSV.</p>
+    <div class="scroll"><table id="invTable"></table></div>
+    <div class="row" style="margin-top:10px"><button class="primary" id="csvBtn" type="button">Download invoices (CSV)</button></div>
+  </section>
+
+  <section>
+    <h2>Metric definitions — the single source of truth</h2>
+    <ul class="defs" id="defs"></ul>
+  </section>
+
+  <footer>All data on this page is randomly generated with a fixed seed and does not describe any real company, lender or person. Lender names are fictional.</footer>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+// ---------- deterministic synthetic data ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const rnd = mulberry32(20261022);
+const normal = () => { let u=0,v=0; while(!u)u=rnd(); while(!v)v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+
+const LENDERS = [
+  {id:"A", name:"Lender A", cur:"EUR", fx:1.08, fee:0.18, n:70, contact:.62, promise:.41, pay:.66},
+  {id:"B", name:"Lender B", cur:"GBP", fx:1.27, fee:0.20, n:45, contact:.58, promise:.37, pay:.61},
+  {id:"C", name:"Lender C", cur:"AED", fx:0.272, fee:0.15, n:90, contact:.66, promise:.44, pay:.70},
+  {id:"D", name:"Lender D", cur:"BRL", fx:0.18, fee:0.22, n:55, contact:.52, promise:.33, pay:.57},
+];
+const DAYS = 90, B_UPLIFT = 0.06; // B improves payment given promise by 6% relative
+const accounts = [];
+LENDERS.forEach(L => {
+  for (let d = 0; d < DAYS; d++) {
+    const n = Math.max(5, Math.round(L.n * (1 + 0.15*Math.sin(d/7*2*Math.PI) + 0.1*normal())));
+    for (let i = 0; i < n; i++) {
+      const balance = Math.round(Math.exp(6.2 + 0.7*normal()) * (L.cur==="AED"?3.6:L.cur==="BRL"?5.5:1));
+      const arm = rnd() < 0.5 ? "A" : "B";
+      const contacted = rnd() < L.contact;
+      const promise = contacted && rnd() < L.promise;
+      const payP = L.pay * (arm==="B" ? 1+B_UPLIFT : 1);
+      const paid = promise && rnd() < payP;
+      const paidAmt = paid ? Math.round(balance * (0.55 + 0.45*rnd())) : 0;
+      const days = paid ? Math.max(1, Math.round(9 + 6*normal())) : null;
+      accounts.push({lender:L.id, day:d, balance, arm, contacted, promise, paid, paidAmt, days});
+    }
+  }
+});
+
+// ---------- ONE set of metric definitions ----------
+const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
+const METRICS = {
+  placed:        {label:"Accounts placed",   fmt:v=>v.toLocaleString("en-US"),      how:"count of accounts placed in the period", f:a=>a.length},
+  contactRate:   {label:"Contact rate",      fmt:v=>(v*100).toFixed(1)+"%",          how:"contacted accounts ÷ placed accounts", f:a=>sum(a,x=>x.contacted)/a.length},
+  promiseRate:   {label:"Promise-to-pay",    fmt:v=>(v*100).toFixed(1)+"%",          how:"accounts with a promise ÷ contacted accounts", f:a=>sum(a,x=>x.promise)/Math.max(1,sum(a,x=>x.contacted))},
+  recoveryRate:  {label:"Recovery rate",     fmt:v=>(v*100).toFixed(1)+"%",          how:"collected amount ÷ placed balance (USD, same FX)", f:a=>sum(a,x=>usd(x,x.paidAmt))/sum(a,x=>usd(x,x.balance))},
+  daysToPay:     {label:"Avg days to pay",   fmt:v=>v.toFixed(1),                    how:"mean days from placement to payment, paid accounts only", f:a=>{const p=a.filter(x=>x.paid);return p.length?sum(p,x=>x.days)/p.length:0}},
+};
+const lenderById = Object.fromEntries(LENDERS.map(l=>[l.id,l]));
+function usd(x, amt){ return amt * lenderById[x.lender].fx; }
+
+// ---------- state ----------
+const fBank = document.getElementById("fBank"), fDays = document.getElementById("fDays");
+fBank.innerHTML = '<option value="all">All lenders</option>' + LENDERS.map(l=>`<option value="${l.id}">${l.name} (${l.cur})</option>`).join("");
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const SERIES = ["--s1","--s2","--s3","--s4"]; // fixed order, colour follows the lender
+function selected(){ const days=+fDays.value, bank=fBank.value; return accounts.filter(x=>x.day>=DAYS-days && (bank==="all"||x.lender===bank)); }
+const tip = document.getElementById("tip");
+function showTip(e, html){ tip.innerHTML = html; tip.style.display="block"; const x=Math.min(e.clientX+14, innerWidth-tip.offsetWidth-8); tip.style.left=x+"px"; tip.style.top=(e.clientY+14)+"px"; }
+function hideTip(){ tip.style.display="none"; }
+
+// ---------- tiles ----------
+function renderTiles(a){
+  document.getElementById("tiles").innerHTML = Object.values(METRICS).map(m=>
+    `<div class="tile"><div class="k">${m.label}</div><div class="v">${m.fmt(m.f(a))}</div><details><summary>how</summary>${m.how}</details></div>`).join("");
+  document.getElementById("defs").innerHTML = Object.entries(METRICS).map(([k,m])=>`<li><code>${k}</code> — ${m.how}</li>`).join("")
+    + `<li><code>collected (USD)</code> — sum of payments × lender FX; the same function feeds tiles, charts, invoices and the reconciliation gate</li>`;
+}
+
+// ---------- line chart ----------
+function renderLine(){
+  const svg = document.getElementById("lineChart"), W=600,H=300,m={l:44,r:78,t:12,b:30};
+  const days=+fDays.value, weeks=Math.floor(days/7), start=DAYS-weeks*7;
+  const series = LENDERS.map((L,i)=>({L, color:css(SERIES[i]), pts:[...Array(weeks)].map((_,w)=>{
+    const a=accounts.filter(x=>x.lender===L.id && x.day>=start+w*7 && x.day<start+w*7+7); return METRICS.recoveryRate.f(a); })}));
+  const all=series.flatMap(s=>s.pts), lo=Math.floor(Math.min(...all)*20)/20, hi=Math.ceil(Math.max(...all)*20)/20, nt=Math.round((hi-lo)/0.05);
+  const X=w=>m.l+(W-m.l-m.r)*(weeks===1?0.5:w/(weeks-1)), Y=v=>m.t+(H-m.t-m.b)*(1-(v-lo)/(hi-lo||1));
+  const focus=fBank.value;
+  let g="";
+  for(let k=0;k<=nt;k++){const v=lo+0.05*k;g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css("--grid")}"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="${css("--muted")}">${(v*100).toFixed(0)}%</text>`;}
+  [0,Math.floor((weeks-1)/2),weeks-1].forEach(w=>g+=`<text x="${X(w)}" y="${H-10}" text-anchor="middle" font-size="11" fill="${css("--muted")}">wk ${w+1}</text>`);
+  const ends=[];
+  series.forEach(s=>{const dim=focus!=="all"&&focus!==s.L.id;const d=s.pts.map((v,w)=>`${w?"L":"M"}${X(w).toFixed(1)},${Y(v).toFixed(1)}`).join("");
+    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="${dim?0.25:1}"/>`;
+    ends.push({y:Y(s.pts[weeks-1]),s,dim});});
+  ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<14) ends[i].y=ends[i-1].y+14;
+  ends.forEach(e=>g+=`<text class="halo" x="${X(weeks-1)+8}" y="${e.y+4}" font-size="12" fill="${css("--text-secondary")}" opacity="${e.dim?0.4:1}">${e.s.L.name.replace("Lender ","")} ${(e.s.pts[weeks-1]*100).toFixed(1)}%</text>`);
+  g+=`<line id="xh" y1="${m.t}" y2="${H-m.b}" stroke="${css("--axis")}" stroke-dasharray="3 3" visibility="hidden"/><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="transparent" id="hit"/>`;
+  svg.innerHTML=g;
+  document.getElementById("lineLegend").innerHTML=series.map(s=>`<span><i style="background:${s.color}"></i>${s.L.name} (${s.L.cur})</span>`).join("");
+  const hit=svg.querySelector("#hit"), xh=svg.querySelector("#xh");
+  hit.onmousemove=e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,w=Math.max(0,Math.min(weeks-1,Math.round((px-m.l)/((W-m.l-m.r)/Math.max(1,weeks-1)))));
+    xh.setAttribute("x1",X(w));xh.setAttribute("x2",X(w));xh.setAttribute("visibility","visible");
+    showTip(e,`<b>Week ${w+1}</b>`+series.slice().sort((a,b)=>b.pts[w]-a.pts[w]).map(s=>`<div><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s.color};margin-right:6px"></i>${s.L.name}: ${(s.pts[w]*100).toFixed(1)}%</div>`).join(""));};
+  hit.onmouseleave=()=>{xh.setAttribute("visibility","hidden");hideTip();};
+}
+
+// ---------- funnel ----------
+function renderFunnel(a){
+  const svg=document.getElementById("funnel"),W=400;
+  const st=[["Placed",a.length],["Contacted",sum(a,x=>x.contacted)],["Promised to pay",sum(a,x=>x.promise)],["Paid",sum(a,x=>x.paid)]];
+  const ramp=["--ramp-1","--ramp-2","--ramp-3","--ramp-4"], max=st[0][1]; let g="";
+  st.forEach(([name,v],i)=>{const y=12+i*70,w=Math.max(4,(W-140)*v/max);
+    g+=`<text x="0" y="${y+12}" font-size="12.5" fill="${css("--text-secondary")}">${name}</text>`;
+    g+=`<rect x="0" y="${y+20}" width="${w}" height="26" rx="4" fill="${css(ramp[i])}" data-t="${name}: ${v.toLocaleString("en-US")} accounts (${(v/max*100).toFixed(1)}% of placed)"/>`;
+    g+=`<text x="${w+8}" y="${y+38}" font-size="12.5" fill="${css("--text-primary")}">${v.toLocaleString("en-US")}</text>`;
+    if(i) g+=`<text x="${W}" y="${y+38}" text-anchor="end" font-size="12" fill="${css("--muted")}">−${(100-v/st[i-1][1]*100).toFixed(0)}% from prev.</text>`;});
+  svg.innerHTML=g; svg.querySelectorAll("rect").forEach(r=>{r.onmousemove=e=>showTip(e,r.dataset.t);r.onmouseleave=hideTip;});
+}
+
+// ---------- reconciliation ----------
+function ledgerTotals(a){ // independent source: payments ledger (built from raw payments, not from the pipeline)
+  const t={}; a.filter(x=>x.paid).forEach(x=>t[x.lender]=(t[x.lender]||0)+x.paidAmt); return t; }
+function pipelineTotals(a, broken){
+  const t=ledgerTotals(a);
+  if(broken && t.C!==undefined){ const dayMax=Math.max(...a.filter(x=>x.lender==="C").map(x=>x.day)); t.C += sum(a.filter(x=>x.lender==="C"&&x.day===dayMax&&x.paid),x=>x.paidAmt); }
+  return t; }
+let reconOk = true;
+function renderRecon(a){
+  const broken=document.getElementById("breakIt").checked, L=ledgerTotals(a), P=pipelineTotals(a,broken);
+  const rows=LENDERS.filter(l=>L[l.id]!==undefined).map(l=>{const d=(P[l.id]||0)-(L[l.id]||0),ok=Math.abs(d)<0.5;return {l,p:P[l.id]||0,g:L[l.id]||0,d,ok};});
+  reconOk=rows.every(r=>r.ok);
+  const f=(v,c)=>v.toLocaleString("en-US",{maximumFractionDigits:0})+" "+c;
+  document.getElementById("reconTable").innerHTML=`<tr><th>Lender</th><th class="num">Pipeline (collected)</th><th class="num">Payments ledger</th><th class="num">Difference</th><th>Check</th></tr>`+
+    rows.map(r=>`<tr><td>${r.l.name}</td><td class="num">${f(r.p,r.l.cur)}</td><td class="num">${f(r.g,r.l.cur)}</td><td class="num">${f(r.d,r.l.cur)}</td><td class="status ${r.ok?"ok":"bad"}">${r.ok?"✓ match":"✕ mismatch"}</td></tr>`).join("");
+  document.getElementById("reconBanner").innerHTML = reconOk
+    ? `<div class="banner ok"><span class="status ok">✓ All lenders reconcile</span><span>Report can be published.</span><button class="primary" type="button">Publish report</button></div>`
+    : `<div class="banner bad"><span class="status bad">✕ Publishing blocked</span><span>Pipeline and ledger disagree — fix the source, not the dashboard.</span><button class="primary" type="button" disabled>Publish report</button></div>`;
+  document.getElementById("csvBtn").disabled = !reconOk;
+}
+
+// ---------- A/B readout ----------
+function renderAB(a){
+  const A=a.filter(x=>x.arm==="A"), B=a.filter(x=>x.arm==="B");
+  const pa=sum(A,x=>x.paid)/A.length, pb=sum(B,x=>x.paid)/B.length, d=pb-pa;
+  const se=Math.sqrt(pa*(1-pa)/A.length+pb*(1-pb)/B.length), lo=d-1.96*se, hi=d+1.96*se;
+  const pp=(pa*A.length+pb*B.length)/(A.length+B.length), seP=Math.sqrt(pp*(1-pp)*(1/A.length+1/B.length)), z=d/seP;
+  const pval=2*(1-normCdf(Math.abs(z))), sig=pval<0.05;
+  document.getElementById("abTable").innerHTML=`<tr><th>Arm</th><th class="num">Accounts</th><th class="num">Paid</th><th class="num">Paid rate</th></tr>
+    <tr><td>A · current script</td><td class="num">${A.length.toLocaleString("en-US")}</td><td class="num">${sum(A,x=>x.paid).toLocaleString("en-US")}</td><td class="num">${(pa*100).toFixed(2)}%</td></tr>
+    <tr><td>B · empathetic opener</td><td class="num">${B.length.toLocaleString("en-US")}</td><td class="num">${sum(B,x=>x.paid).toLocaleString("en-US")}</td><td class="num">${(pb*100).toFixed(2)}%</td></tr>
+    <tr><td>Difference (B − A)</td><td></td><td></td><td class="num">${d>=0?"+":""}${(d*100).toFixed(2)} pp</td></tr>
+    <tr><td>p-value</td><td></td><td></td><td class="num">${pval<0.001?"<0.001":pval.toFixed(3)}</td></tr>`;
+  const svg=document.getElementById("abChart"),W=560,m={l:20,r:20}, span=Math.max(Math.abs(lo),Math.abs(hi),0.01)*1.25;
+  const X=v=>m.l+(W-m.l-m.r)*(v+span)/(2*span); let g="";
+  [-span,-span/2,0,span/2,span].forEach(v=>g+=`<line x1="${X(v)}" x2="${X(v)}" y1="30" y2="120" stroke="${v===0?css("--axis"):css("--grid")}" stroke-width="${v===0?1.5:1}"/><text x="${X(v)}" y="140" text-anchor="middle" font-size="11" fill="${css("--muted")}">${v>0?"+":""}${(v*100).toFixed(1)} pp</text>`);
+  g+=`<text x="${X(0)}" y="22" text-anchor="middle" font-size="11" fill="${css("--muted")}">no effect</text>`;
+  g+=`<line x1="${X(lo)}" x2="${X(hi)}" y1="75" y2="75" stroke="${css("--s1")}" stroke-width="2"/>`;
+  [lo,hi].forEach(v=>g+=`<line x1="${X(v)}" x2="${X(v)}" y1="67" y2="83" stroke="${css("--s1")}" stroke-width="2"/>`);
+  g+=`<circle cx="${X(d)}" cy="75" r="6" fill="${css("--s1")}" stroke="${css("--card")}" stroke-width="2" id="abDot"/>`;
+  g+=`<text class="halo" x="${X(d)}" y="104" text-anchor="middle" font-size="12" fill="${css("--text-primary")}">${d>=0?"+":""}${(d*100).toFixed(2)} pp [${(lo*100).toFixed(2)}, ${(hi*100).toFixed(2)}]</text>`;
+  g+=`<text x="${W/2}" y="162" text-anchor="middle" font-size="11.5" fill="${css("--text-secondary")}">Paid rate, B − A, with 95% confidence interval</text>`;
+  svg.innerHTML=g; const dot=svg.querySelector("#abDot"); dot.onmousemove=e=>showTip(e,`<b>B − A</b>${(d*100).toFixed(2)} pp<br>95% CI ${(lo*100).toFixed(2)} … ${(hi*100).toFixed(2)} pp<br>z = ${z.toFixed(2)}`); dot.onmouseleave=hideTip;
+  const mde = 2.8*seP; // ~80% power at alpha 0.05
+  document.getElementById("abVerdict").innerHTML = sig
+    ? `<strong>Verdict: real lift.</strong> The interval excludes zero (p ${pval<0.001?"&lt; 0.001":"= "+pval.toFixed(3)}). Before rollout I'd still check sample-ratio mismatch, guardrails (complaints, opt-outs) and whether the lift holds per lender.`
+    : `<strong>Verdict: can't call it yet.</strong> The interval includes zero (p = ${pval.toFixed(3)}). With this sample the smallest detectable lift is ≈ ${(mde*100).toFixed(2)} pp — keep the test running or pool more lenders rather than shipping on noise.`;
+}
+function normCdf(x){const t=1/(1+0.2316419*x),d=0.3989423*Math.exp(-x*x/2);return 1-d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));}
+
+// ---------- invoices ----------
+let invRows=[];
+function renderInvoices(a){
+  const t=ledgerTotals(a);
+  invRows=LENDERS.filter(l=>t[l.id]!==undefined).map(l=>{const coll=t[l.id],fee=coll*l.fee;return {lender:l.name,currency:l.cur,collected:coll,feeRate:l.fee,invoice:fee,fx:l.fx,invoiceUsd:fee*l.fx};});
+  const f=v=>v.toLocaleString("en-US",{maximumFractionDigits:0}); const tot=invRows.reduce((s,r)=>s+r.invoiceUsd,0);
+  document.getElementById("invTable").innerHTML=`<tr><th>Lender</th><th>Currency</th><th class="num">Collected</th><th class="num">Success fee</th><th class="num">Invoice</th><th class="num">FX → USD</th><th class="num">Invoice, USD</th></tr>`+
+    invRows.map(r=>`<tr><td>${r.lender}</td><td>${r.currency}</td><td class="num">${f(r.collected)}</td><td class="num">${(r.feeRate*100).toFixed(0)}%</td><td class="num">${f(r.invoice)}</td><td class="num">${r.fx}</td><td class="num">${f(r.invoiceUsd)}</td></tr>`).join("")+
+    `<tr><td><strong>Total</strong></td><td></td><td></td><td></td><td></td><td></td><td class="num"><strong>${f(tot)}</strong></td></tr>`;
+}
+document.getElementById("csvBtn").onclick=()=>{
+  if(!reconOk) return;
+  const head="lender,currency,collected,fee_rate,invoice,fx_to_usd,invoice_usd\n";
+  const body=invRows.map(r=>[r.lender,r.currency,r.collected.toFixed(2),r.feeRate,r.invoice.toFixed(2),r.fx,r.invoiceUsd.toFixed(2)].join(",")).join("\n");
+  const url=URL.createObjectURL(new Blob([head+body],{type:"text/csv"})); const el=document.createElement("a"); el.href=url; el.download="invoices_demo.csv"; el.click(); URL.revokeObjectURL(url);
+};
+
+// ---------- wiring ----------
+function render(){ const a=selected(); renderTiles(a); renderLine(); renderFunnel(a); renderRecon(a); renderAB(a); renderInvoices(a); }
+[fBank,fDays].forEach(el=>el.onchange=render); document.getElementById("breakIt").onchange=render;
+document.getElementById("themeBtn").onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches; r.dataset.theme=dark?"light":"dark"; render();};
+render();
+</script>
+</body>
+</html>
