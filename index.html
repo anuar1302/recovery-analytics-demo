@@ -3,335 +3,731 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Recovery Analytics Demo — Anuar Kabidenov</title>
-<meta name="description" content="Demo: debt-recovery KPIs with one set of metric definitions, reconciliation that blocks publishing, an A/B readout with confidence intervals, and automated multi-currency invoicing. Synthetic data.">
+<title>Recovery Analytics</title>
+<meta name="description" content="Demo analytics dashboard for an AI debt-recovery business, on synthetic data. Built by Anuar Kabidenov.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    color-scheme: light;
-    --page: #f9f9f7; --surface-1: #fcfcfb; --card: #ffffff;
-    --text-primary: #0b0b0b; --text-secondary: #52514e; --muted: #898781;
-    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
-    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
-    --ramp-1: #86b6ef; --ramp-2: #5598e7; --ramp-3: #2a78d6; --ramp-4: #1c5cab;
-    --good: #0ca30c; --good-text: #006300; --critical: #d03b3b; --warning: #fab219;
-    --accent: #2a78d6; --wash: rgba(42,120,214,0.08);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:where(:not([data-theme="light"])) {
-      color-scheme: dark;
-      --page: #0d0d0d; --surface-1: #1a1a19; --card: #1a1a19;
-      --text-primary: #f0efec; --text-secondary: #c3c2b7; --muted: #898781;
-      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
-      --ramp-1: #184f95; --ramp-2: #1c5cab; --ramp-3: #2a78d6; --ramp-4: #5598e7;
-      --good-text: #0ca30c; --accent: #3987e5; --wash: rgba(57,135,229,0.12);
-    }
-  }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --page: #0d0d0d; --surface-1: #1a1a19; --card: #1a1a19;
-    --text-primary: #f0efec; --text-secondary: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
-    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
-    --ramp-1: #184f95; --ramp-2: #1c5cab; --ramp-3: #2a78d6; --ramp-4: #5598e7;
-    --good-text: #0ca30c; --accent: #3987e5; --wash: rgba(57,135,229,0.12);
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--page); color: var(--text-primary); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 1080px; margin: 0 auto; padding: 24px 16px 56px; }
-  header h1 { font-size: 26px; margin: 0 0 4px; }
-  header p { margin: 0; color: var(--text-secondary); }
-  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); margin: 8px 6px 0 0; }
-  .links a { color: var(--accent); margin-right: 14px; font-size: 14px; }
-  .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 22px 0 14px; position: sticky; top: 0; background: var(--page); padding: 8px 0; z-index: 5; }
-  .filters label { font-size: 13px; color: var(--text-secondary); }
-  select, button { font: inherit; font-size: 14px; color: var(--text-primary); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
-  button { cursor: pointer; }
-  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  .theme { margin-left: auto; }
-  section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 14px 0; }
-  section h2 { font-size: 17px; margin: 0 0 2px; }
-  .lead { margin: 0 0 14px; color: var(--text-secondary); font-size: 14px; }
-  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-  .tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-1); }
-  .tile .k { font-size: 12px; color: var(--text-secondary); }
-  .tile .v { font-size: 24px; font-weight: 650; margin-top: 2px; }
-  .tile details { margin-top: 4px; font-size: 12px; color: var(--muted); }
-  .tile summary { cursor: pointer; color: var(--accent); }
-  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; }
-  .chart { width: 100%; height: auto; display: block; }
-  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--text-secondary); margin: 6px 0 0; }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
-  .tip { position: fixed; pointer-events: none; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; z-index: 20; min-width: 150px; }
-  .tip b { display: block; margin-bottom: 3px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); }
-  th { color: var(--text-secondary); font-weight: 600; font-size: 13px; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .status { font-weight: 600; white-space: nowrap; }
-  .ok { color: var(--good-text); } .bad { color: var(--critical); }
-  .banner { border-radius: 10px; padding: 10px 14px; margin: 12px 0 0; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .banner.ok { background: rgba(12,163,12,.10); } .banner.bad { background: rgba(208,59,59,.10); }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .verdict { font-size: 15px; margin: 10px 0 0; }
-  code { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
-  .defs { columns: 2; column-gap: 24px; font-size: 13.5px; color: var(--text-secondary); padding-left: 18px; margin: 6px 0 0; }
-  .defs li { margin: 3px 0; break-inside: avoid; }
-  footer { color: var(--muted); font-size: 13px; margin-top: 18px; }
-  @media (max-width: 860px) { .tiles { grid-template-columns: repeat(2, 1fr); } .grid2 { grid-template-columns: 1fr; } .defs { columns: 1; } .theme { margin-left: 0; } }
-  .scroll { overflow-x: auto; }
-  #funnel { max-width: 460px; }
-  svg text.halo { paint-order: stroke; stroke: var(--card); stroke-width: 4px; stroke-linejoin: round; }
+:root{--bg:#f2f3f5;--rail:#ffffff;--surface:#ffffff;--surface2:#f7f8f9;--ink:#0b0d12;--ink2:#2a2c33;--muted:#6f727c;--line:#e8e9ee;--gross:#a6ecc0;--net:#16b568;--accent:#0b8260;--pgross:#feecc7;--pnet:#f2a20c;--up:#0b8260;--down:#c8352f;--downBg:#fdecec;--bad:#e8857b;--hl:rgba(11,13,18,.05);--chip:#e1faec;--chipInk:#0b7a52;--selBg:#0b0d12;--selInk:#ffffff;--skel:#eceef1;color-scheme:light}
+:root[data-theme="night"]{--bg:#0b0f0e;--rail:#0f1513;--surface:#131a18;--surface2:#18211e;--ink:#edf3f0;--ink2:#c4ccc8;--muted:#8a9591;--line:#232d2a;--gross:#1f5040;--net:#2ed38a;--accent:#5be3a4;--pgross:#4d3c16;--pnet:#f1b23a;--up:#4fdc98;--down:#ff7d6e;--downBg:#3a1e1b;--bad:#b4544a;--hl:rgba(255,255,255,.06);--chip:#173a2c;--chipInk:#7ff2ba;--selBg:#edf3f0;--selInk:#0b0f0e;--skel:#1b2421;color-scheme:dark}
+:root[data-theme="sand"]{--bg:#efebe3;--rail:#f7f4ee;--surface:#fcfaf6;--surface2:#f4f0e8;--ink:#1c1a16;--ink2:#3a362f;--muted:#7d766a;--line:#e3dccf;--gross:#bfd7ca;--net:#2c6e5a;--accent:#1f5546;--pgross:#f3dfb4;--pnet:#d99a1e;--up:#2c6e5a;--down:#b8432f;--downBg:#f6e1da;--bad:#d58a78;--hl:rgba(28,26,22,.05);--chip:#e1ebe4;--chipInk:#1f5546;--selBg:#1c1a16;--selInk:#fcfaf6;--skel:#ebe5da}
+@media (prefers-color-scheme: dark){:root:not([data-theme]){--bg:#0b0f0e;--rail:#0f1513;--surface:#131a18;--surface2:#18211e;--ink:#edf3f0;--ink2:#c4ccc8;--muted:#8a9591;--line:#232d2a;--gross:#1f5040;--net:#2ed38a;--accent:#5be3a4;--pgross:#4d3c16;--pnet:#f1b23a;--up:#4fdc98;--down:#ff7d6e;--downBg:#3a1e1b;--bad:#b4544a;--hl:rgba(255,255,255,.06);--chip:#173a2c;--chipInk:#7ff2ba;--selBg:#edf3f0;--selInk:#0b0f0e;--skel:#1b2421;color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Golos Text',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+a{color:var(--accent)}
+.app{display:flex;min-height:100vh}
+.num,.h,h1,h2,h3{font-family:Onest,sans-serif}
+@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in oklch,var(--net) 60%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in oklch,var(--net) 0%,transparent)}}
+@keyframes prog{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.rail{width:248px;flex:0 0 248px;position:sticky;top:0;height:100vh;background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:26px 16px 20px;gap:26px;overflow:auto}
+.logo{font-family:Onest,sans-serif;font-weight:800;font-size:23px;letter-spacing:-.6px;color:var(--net)}
+.logo span{color:var(--ink)}
+.logo-sub{font-size:12.5px;color:var(--muted);margin-top:4px}
+.cap{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:12px;border:0;text-align:left;cursor:pointer;padding:10px 12px;border-radius:10px;font-size:15px;font-weight:500;background:none;transition:background .15s}
+.nav button:hover{background:var(--hl)}
+.nav button.on{background:var(--selBg);color:var(--selInk)}
+.nav button .n{font-family:Onest,sans-serif;font-size:11px;font-weight:600;opacity:.55;width:16px}
+.themes{display:flex;gap:6px}
+.themes button{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:9px 4px 7px;border-radius:10px;cursor:pointer;font-size:11.5px;color:var(--ink2);background:var(--surface2);border:1.5px solid transparent}
+.themes button.on{border-color:var(--ink)}
+.dots{display:flex}.dots i{width:16px;height:16px;border-radius:50%;border:1px solid rgba(0,0,0,.08)}.dots i+i{margin-left:-5px}
+.fresh{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:12px;background:var(--surface2);font-size:12.5px;line-height:1.4;border:0;text-align:left;cursor:pointer;width:100%}
+.fresh .dot{width:8px;height:8px;border-radius:50%;background:var(--net);margin-top:5px;flex:0 0 8px;animation:pulse 2.4s infinite}
+.fresh.bad .dot{background:var(--down);animation:none}
+.fresh b{font-weight:500;display:block}.fresh small{color:var(--muted);font-size:12px}
+.side-link{display:flex;gap:8px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:12.5px;line-height:1.35}
+.side-link:hover{border-color:var(--muted)}
+.topbar{display:none}
+main{flex:1;min-width:0;display:flex;flex-direction:column}
+.head{display:flex;justify-content:space-between;align-items:center;gap:10px 32px;flex-wrap:wrap;padding:24px 40px 14px;max-width:1480px;width:100%}
+.head .l{display:flex;align-items:center;gap:14px;min-width:0}
+.sq{flex:0 0 auto;width:40px;height:40px;border-radius:12px;background:var(--selBg);color:var(--selInk);display:flex;align-items:center;justify-content:center;font-family:Onest,sans-serif;font-size:14px;font-weight:700}
+.eyebrow{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.eyebrow em{font-style:normal;letter-spacing:.3px;text-transform:none;font-weight:500}
+.eyebrow i{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6}
+.tl{display:flex;align-items:baseline;gap:2px 12px;flex-wrap:wrap}
+h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1.1}
+.lead{margin:0;font-size:14px;color:var(--ink2);opacity:.75}
+.tvbtn{white-space:nowrap;display:flex;align-items:center;gap:10px;border:0;font-size:14px;font-weight:600;padding:8px 16px 8px 13px;border-radius:999px;cursor:pointer;background:var(--selBg);color:var(--selInk)}
+.tvbtn:before{content:"";border-left:9px solid currentColor;border-top:6px solid transparent;border-bottom:6px solid transparent}
+.bar{position:sticky;top:0;z-index:5;background:color-mix(in oklch,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.bar-in{display:flex;flex-direction:column;gap:8px;padding:10px 40px;max-width:1480px}
+.row{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
+.lbl{font-size:12px;color:var(--muted)}
+.hint{font-size:11.5px;color:var(--muted)}
+.seg{display:flex;gap:2px;padding:3px;background:var(--surface);border:1px solid var(--line);border-radius:999px;overflow-x:auto;scrollbar-width:none;max-width:100%}
+.seg button{white-space:nowrap;display:flex;align-items:center;gap:6px;border:0;font-size:13px;font-weight:500;height:30px;padding:0 12px;border-radius:999px;cursor:pointer;background:none;color:var(--ink2)}
+.seg button:hover{background:var(--hl)}
+.seg button.on{background:var(--selBg);color:var(--selInk)}
+.seg button:disabled{opacity:.35;cursor:default;background:none}
+.seg button .k{font-family:Onest,sans-serif;font-size:10.5px;opacity:.55}
+.seg button .c{font-size:11px;opacity:.55}
+.chip{white-space:nowrap;display:flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:500;background:var(--surface);border:1px solid var(--line);color:var(--ink2)}
+.chip:hover{border-color:var(--muted)}
+.chip:disabled{opacity:.4;cursor:default}
+.chip i{width:14px;height:2.5px;border-radius:2px}
+.chip.off{opacity:.45}
+.date{height:36px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 12px;font:inherit;font-size:13px}
+.search{position:relative}
+.search input{height:36px;width:260px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:0 14px 0 30px;font:inherit;font-size:13px}
+.search:before{content:"";position:absolute;left:12px;top:13px;width:8px;height:8px;border:1.5px solid var(--muted);border-radius:50%}
+.sugg{position:absolute;top:40px;left:0;z-index:20;width:300px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.12);padding:8px;display:none}
+.sugg.on{display:block}
+.sugg .cap{padding:6px 8px 4px;font-size:10px}
+.sugg button{display:block;width:100%;text-align:left;border:0;background:none;cursor:pointer;padding:6px 8px;border-radius:8px}
+.sugg button:hover{background:var(--hl)}
+.sugg b{font-weight:500;font-size:13px;display:block}.sugg small{font-size:11px;color:var(--muted)}
+.pill-x{display:flex;align-items:center;gap:6px;height:36px;padding:0 6px 0 14px;border-radius:999px;background:var(--chip);color:var(--chipInk);font-size:13px;font-weight:500}
+.pill-x button{border:0;background:none;cursor:pointer;color:inherit;width:24px;height:24px;border-radius:50%}
+.content{padding:22px 40px 60px;max-width:1480px;width:100%;animation:up .35s ease}
+.blk{margin-bottom:34px}
+.blk-h{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.blk-h h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.4px}
+.blk-h p{margin:4px 0 0;font-size:13.5px;color:var(--ink2);opacity:.8;max-width:640px}
+.legend{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin:0 0 12px}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px}
+.how{display:flex;align-items:center;gap:6px;border:0;background:none;cursor:pointer;font-size:12.5px;color:var(--ink2);padding:0}
+.how:before{content:"i";display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1.3px solid currentColor;font-size:10px;font-weight:700;font-family:Onest}
+.tog{display:flex;align-items:center;gap:8px;border:0;background:none;cursor:pointer;font-size:12.5px;color:var(--ink2);padding:0}
+.tog:before{content:"";width:16px;height:16px;border-radius:50%;border:1.5px solid var(--muted);box-sizing:border-box}
+.tog.on:before{border:5px solid var(--net)}
+.note{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:12.5px;line-height:1.55;color:var(--ink2);margin:0 0 14px;max-width:980px}
+.note b{color:var(--ink)}
+.card{background:var(--surface);border-radius:18px;border:1px solid var(--line);overflow:hidden}
+.grid-row{display:grid;grid-template-columns:150px repeat(var(--cols),minmax(0,1fr));border-top:1px solid var(--line)}
+.grid-row:first-child{border-top:0}
+.grid-row>div{padding:16px 18px 12px;min-width:0}
+.grid-row>div+div{border-left:1px solid var(--line)}
+.rname{font-family:Onest;font-weight:700;font-size:15px}
+.rname small{display:block;font-family:'Golos Text';font-weight:400;font-size:11.5px;color:var(--muted);margin-top:2px}
+.mcap{font-size:10.5px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--muted)}
+.big{font-family:Onest;font-weight:700;font-size:28px;letter-spacing:-.6px;line-height:1.15;margin-top:4px}
+.big small{font-size:14px;font-weight:600;margin-left:4px;color:var(--ink2)}
+.sub{font-size:12.5px;color:var(--ink2);margin-top:2px}
+.sub .g{color:var(--up);font-weight:600}.sub .r{color:var(--down);font-weight:600}
+.more{margin:12px 0 0;border:0;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink2);padding:6px 8px}
+.more:hover{color:var(--ink)}
+svg{display:block;overflow:visible}
+svg text{font-family:'Golos Text',sans-serif}
+.bar-r{transform-origin:bottom;transform-box:fill-box;animation:grow .5s ease both}
+.delta{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.delta.u{background:var(--chip);color:var(--chipInk)}.delta.d{background:var(--downBg);color:var(--down)}.delta.z{background:var(--surface2);color:var(--muted)}
+.tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--net);color:#fff;white-space:nowrap;font-family:'Golos Text'}
+:root[data-theme="night"] .tag{color:#04140c}
+.tag.mid{background:var(--chip);color:var(--chipInk)}
+.tag.warn{background:none;color:var(--down);border:1px solid color-mix(in oklch,var(--down) 40%,transparent)}
+.tag.dead{background:var(--downBg);color:var(--down)}
+.lnk{border:0;background:none;padding:0;cursor:pointer;color:var(--accent);font-size:12px;font-weight:500;font-family:'Golos Text'}
+.rank{width:100%;border-collapse:collapse}
+.rank th{font-size:10.5px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rank th.s{cursor:pointer}.rank th.s:hover{color:var(--ink)}
+.rank td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.rank tr:last-child td{border-bottom:0}
+.rank tr.sel td{background:var(--hl)}
+.rank tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--ink)}
+.rank .nm{font-family:Onest;font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rank .lg{font-size:11.5px;color:var(--muted);margin-top:3px;max-width:300px}
+.rank .v{font-family:Onest;font-weight:700;font-size:18px;text-align:right}
+.share{font-size:12.5px;text-align:right}
+.share i{display:block;height:3px;border-radius:2px;background:var(--net)}
+.share s{display:block;height:3px;border-radius:2px;background:var(--line);text-decoration:none;margin-top:5px}
+.rank-wrap{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
+.rank-wrap.open{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.rank-wrap.ai-wrap{grid-template-columns:minmax(0,1.65fr) minmax(0,1fr)}
+.panel{position:sticky;top:120px;display:flex;flex-direction:column;gap:14px}
+.panel .card{padding:18px}
+.kgrid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:14px}
+.kgrid>div{padding:12px 14px;border-top:1px solid var(--line)}
+.kgrid>div:nth-child(-n+2){border-top:0}
+.kgrid>div:nth-child(even){border-left:1px solid var(--line)}
+.kgrid .big{font-size:24px}
+.x{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);cursor:pointer;flex:0 0 auto}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 16px 12px}
+.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.step .t{font-family:Onest;font-weight:700;font-size:15px;line-height:1.25;min-height:38px}
+.step .pc{font-family:Onest;font-weight:700;font-size:34px;letter-spacing:-.8px}
+.step .pc small{font-size:15px;margin-left:2px}
+.track{height:5px;border-radius:3px;background:var(--gross)}
+.track i{display:block;height:100%;border-radius:3px;background:var(--net)}
+.step .d{font-size:12px;color:var(--ink2);line-height:1.45}
+.step .e{margin-top:auto;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);line-height:1.45}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:26px;padding-top:18px;border-top:1px solid var(--line)}
+.pager .nx{border:0;cursor:pointer;background:var(--selBg);color:var(--selInk);font-weight:600;font-size:13.5px;padding:10px 18px;border-radius:999px}
+.pager .pv{border:0;cursor:pointer;background:none;font-size:13.5px;color:var(--ink2);padding:10px 12px}
+.pager span{font-size:12.5px;color:var(--muted)}
+.tbl-wrap{overflow-x:auto}
+.tbl{border-collapse:collapse;font-size:13px;min-width:100%}
+.tbl th{font-size:11.5px;font-weight:500;color:var(--muted);text-align:right;padding:8px 10px;white-space:nowrap;border-bottom:1px solid var(--line)}
+.tbl th.grp{text-align:left;font-family:Onest;font-weight:700;font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink);border-left:1.5px solid var(--ink)}
+.tbl td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td:first-child,.tbl th:first-child{text-align:left;position:sticky;left:0;background:var(--surface)}
+.tbl td.gl,.tbl th.gl{border-left:1.5px solid var(--ink)}
+.tbl tr.tot td{font-weight:700;background:var(--surface2)}
+.tbl tr.sel td{background:var(--hl)}
+.foot{font-size:11.5px;color:var(--muted);line-height:1.55;padding:12px 18px;border-top:1px solid var(--line)}
+#tip{position:fixed;z-index:50;pointer-events:none;background:var(--selBg);color:var(--selInk);font-size:12px;line-height:1.45;padding:8px 10px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);opacity:0;transition:opacity .1s;max-width:260px}
+#tip b{font-weight:600}
+.modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.on{display:flex}
+.modal .box{background:var(--surface);border-radius:18px;max-width:640px;width:100%;max-height:86vh;overflow:auto;padding:22px 24px;border:1px solid var(--line)}
+.chk{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line);font-size:13px}
+.chk .ok{color:var(--up);font-weight:700}.chk .no{color:var(--down);font-weight:700}
+.chk small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+.tvbar{position:fixed;top:0;left:0;right:0;height:3px;z-index:60;background:var(--line);display:none}
+.tvbar i{display:block;height:100%;background:var(--net);transform-origin:left}
+body.tv .rail,body.tv .bar,body.tv .topbar,body.tv .tvbtn{display:none}
+body.tv .tvbar{display:block}
+body.tv .head{padding-top:30px}
+.tvhint{position:fixed;right:16px;bottom:14px;font-size:12px;color:var(--muted);display:none}
+body.tv .tvhint{display:block}
+.ftr{font-size:11.5px;color:var(--muted);padding:0 40px 30px;max-width:1480px;line-height:1.6}
+@media (max-width:1180px){.steps{grid-template-columns:repeat(3,minmax(0,1fr))}.rank-wrap.open{grid-template-columns:1fr}.panel{position:static}}
+@media (max-width:900px){
+ .rail{display:none}
+ .topbar{display:flex;flex-direction:column;gap:10px;padding:14px 16px 0;background:var(--rail);border-bottom:1px solid var(--line)}
+ .topbar .r1{display:flex;justify-content:space-between;align-items:center}
+ .topbar .logo{font-size:20px}
+ .topbar .tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+ .topbar .tabs button{border:0;white-space:nowrap;cursor:pointer;font-size:14px;font-weight:500;padding:10px 12px;background:none;color:var(--muted);border-bottom:2.5px solid transparent}
+ .topbar .tabs button.on{color:var(--ink);border-color:var(--ink)}
+ .topbar .td{display:flex;gap:6px}.topbar .td button{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid var(--line)}
+ .topbar .td button.on{border-color:var(--ink)}
+ .head,.bar-in,.content,.ftr{padding-left:16px;padding-right:16px}
+ .bar{position:static}
+ h1{font-size:24px}
+ .grid-row{grid-template-columns:1fr}
+ .grid-row>div+div{border-left:0;border-top:1px solid var(--line)}
+ .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .steps{grid-template-columns:1fr 1fr}
+ .search input{width:200px}
+ .rank .hide-m{display:none}
+}
+@media (max-width:520px){.tiles,.steps{grid-template-columns:1fr}.tvbtn{display:none}}
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>Recovery analytics — one source of truth</h1>
-    <p>A working demo of how I own the numbers in a debt-recovery business: one set of metric definitions, reconciliation that blocks a wrong report, an experiment readout that separates lift from noise, and invoicing that runs itself.</p>
-    <span class="tag">Synthetic data · 4 fictional lenders · 90 days</span><span class="tag">Built single-handedly with Claude Code</span><span class="tag">Plain HTML + JS, no backend</span>
-    <div class="links" style="margin-top:10px">
-      <strong>Anuar Kabidenov</strong> · Product / Data Analyst &nbsp;
-      <a href="https://linkedin.com/in/anuar-kabidenov1302">LinkedIn</a><a href="mailto:anuarkabidenov1302@gmail.com">Email</a><a href="https://github.com/anuar1302/recovery-analytics-demo">Source</a>
+<div class="tvbar"><i id="tvprog"></i></div>
+<div class="app">
+  <aside class="rail">
+    <div><div class="logo">Recovery<span>Lab</span></div><div class="logo-sub">Analytics for leadership · demo</div></div>
+    <nav class="nav" id="nav"></nav>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:14px">
+      <div><div class="cap" style="padding:0 8px 8px">Theme</div><div class="themes" id="themes"></div></div>
+      <button class="fresh" id="fresh" title="Open data checks"><span class="dot"></span><span><b id="freshT">Data through Oct 21</b><small id="freshS">built Oct 22, 06:10 · 14/14 checks passed ›</small></span></button>
+      <a class="side-link" href="https://github.com/anuar1302/recovery-analytics-demo" target="_blank" rel="noopener"><span>⌥</span><span><b style="font-weight:600">Source code</b><br><span style="color:var(--muted)">one HTML file, no backend</span></span></a>
     </div>
-  </header>
-
-  <div class="filters" role="group" aria-label="Filters">
-    <label>Lender <select id="fBank"></select></label>
-    <label>Period <select id="fDays"><option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option></select></label>
-    <button class="theme" id="themeBtn" type="button">Toggle dark mode</button>
-  </div>
-
-  <section>
-    <h2>KPIs — every team computes them the same way</h2>
-    <p class="lead">Each tile is calculated from the single <code>METRICS</code> definition object below — open "how" to see the exact rule.</p>
-    <div class="tiles" id="tiles"></div>
-  </section>
-
-  <div class="grid2">
-    <section>
-      <h2>Weekly recovery rate by lender</h2>
-      <p class="lead">Share of placed balance collected, by week of placement. Hover for values.</p>
-      <svg class="chart" id="lineChart" viewBox="0 0 600 300" role="img" aria-label="Weekly recovery rate by lender"></svg>
-      <div class="legend" id="lineLegend"></div>
-    </section>
-    <section>
-      <h2>Collection funnel</h2>
-      <p class="lead">Accounts at each stage and the drop between stages.</p>
-      <svg class="chart" id="funnel" viewBox="0 0 400 300" role="img" aria-label="Collection funnel"></svg>
-    </section>
-  </div>
-
-  <section>
-    <h2>Reconciliation gate — the report can't publish wrong numbers</h2>
-    <p class="lead">Collected amounts from the analytics pipeline are checked against the payments ledger before anything reaches management. Try breaking the pipeline.</p>
-    <div class="row">
-      <label class="row" style="gap:6px"><input type="checkbox" id="breakIt"> Simulate a broken pipeline (one day of payments loaded twice for Lender C)</label>
-    </div>
-    <div class="scroll"><table id="reconTable" style="margin-top:10px"></table></div>
-    <div id="reconBanner"></div>
-  </section>
-
-  <section>
-    <h2>Experiment readout — real lift or noise?</h2>
-    <p class="lead">50/50 split of new accounts between the current call script (A) and an empathetic opener (B). Metric: share of accounts that paid. Two-proportion z-test, 95% confidence interval.</p>
-    <div class="grid2">
-      <svg class="chart" id="abChart" viewBox="0 0 560 170" role="img" aria-label="Difference in paid rate, B minus A, with 95% confidence interval"></svg>
-      <div class="scroll"><table id="abTable"></table></div>
-    </div>
-    <p class="verdict" id="abVerdict"></p>
-  </section>
-
-  <section>
-    <h2>Automated invoicing — every lender, every currency</h2>
-    <p class="lead">Success fee on collected amounts, billed in each lender's currency and consolidated to USD at a fixed demo rate. Recomputed on every filter change; exports to CSV.</p>
-    <div class="scroll"><table id="invTable"></table></div>
-    <div class="row" style="margin-top:10px"><button class="primary" id="csvBtn" type="button">Download invoices (CSV)</button></div>
-  </section>
-
-  <section>
-    <h2>Metric definitions — the single source of truth</h2>
-    <ul class="defs" id="defs"></ul>
-  </section>
-
-  <footer>All data on this page is randomly generated with a fixed seed and does not describe any real company, lender or person. Lender names are fictional.</footer>
-</main>
-<div class="tip" id="tip"></div>
-
+  </aside>
+  <main>
+    <div class="topbar"><div class="r1"><div class="logo">Recovery<span>Lab</span></div><div class="td" id="themesM"></div></div><div class="tabs" id="tabsM"></div></div>
+    <header class="head">
+      <div class="l"><span class="sq" id="hNum">01</span><div><div class="eyebrow" id="hEye"></div><div class="tl"><h1 id="hTitle"></h1><p class="lead" id="hLead"></p></div></div></div>
+      <button class="tvbtn" id="tvBtn" title="Slideshow for an office screen. Esc to exit">TV mode</button>
+    </header>
+    <div class="bar" id="bar"><div class="bar-in" id="barIn"></div></div>
+    <div class="content" id="content"></div>
+    <div class="ftr">All numbers on this page are generated with a fixed random seed. Clients, markets and segments are fictional and do not describe any real company or person. Built by <a href="https://www.linkedin.com/in/anuar-kabidenov1302" target="_blank" rel="noopener">Anuar Kabidenov</a> · <a href="mailto:anuarkabidenov1302@gmail.com">anuarkabidenov1302@gmail.com</a></div>
+  </main>
+</div>
+<div id="tip"></div>
+<div class="modal" id="modal"><div class="box" id="modalBox"></div></div>
+<div class="tvhint">TV mode · sections change every 10 s · Esc to exit</div>
 <script>
-// ---------- deterministic synthetic data ----------
-function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const rnd = mulberry32(20261022);
-const normal = () => { let u=0,v=0; while(!u)u=rnd(); while(!v)v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
-
-const LENDERS = [
-  {id:"A", name:"Lender A", cur:"EUR", fx:1.08, fee:0.18, n:70, contact:.62, promise:.41, pay:.66},
-  {id:"B", name:"Lender B", cur:"GBP", fx:1.27, fee:0.20, n:45, contact:.58, promise:.37, pay:.61},
-  {id:"C", name:"Lender C", cur:"AED", fx:0.272, fee:0.15, n:90, contact:.66, promise:.44, pay:.70},
-  {id:"D", name:"Lender D", cur:"BRL", fx:0.18, fee:0.22, n:55, contact:.52, promise:.33, pay:.57},
-];
-const DAYS = 90, B_UPLIFT = 0.06; // B improves payment given promise by 6% relative
-const accounts = [];
-LENDERS.forEach(L => {
-  for (let d = 0; d < DAYS; d++) {
-    const n = Math.max(5, Math.round(L.n * (1 + 0.15*Math.sin(d/7*2*Math.PI) + 0.1*normal())));
-    for (let i = 0; i < n; i++) {
-      const balance = Math.round(Math.exp(6.2 + 0.7*normal()) * (L.cur==="AED"?3.6:L.cur==="BRL"?5.5:1));
-      const arm = rnd() < 0.5 ? "A" : "B";
-      const contacted = rnd() < L.contact;
-      const promise = contacted && rnd() < L.promise;
-      const payP = L.pay * (arm==="B" ? 1+B_UPLIFT : 1);
-      const paid = promise && rnd() < payP;
-      const paidAmt = paid ? Math.round(balance * (0.55 + 0.45*rnd())) : 0;
-      const days = paid ? Math.max(1, Math.round(9 + 6*normal())) : null;
-      accounts.push({lender:L.id, day:d, balance, arm, contacted, promise, paid, paidAmt, days});
-    }
+'use strict';
+/* ============ synthetic data ============ */
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const R=rng(20261022), rn=(a,b)=>a+(b-a)*R(), nz=()=>(R()+R()+R()-1.5)/1.5;
+const START=Date.UTC(2026,0,1), ND=294; // Jan 1 .. Oct 21
+const DAY=i=>new Date(START+i*864e5);
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'];
+const MONL=['January','February','March','April','May','June','July','August','September','October'];
+const mOf=i=>DAY(i).getUTCMonth();
+const MKTS=[
+ {id:'uae',name:'UAE',color:'#16b568',s:1.0,fee:.15,launch:0},
+ {id:'uk',name:'United Kingdom',short:'UK',color:'#8fb31d',s:.62,fee:.18,launch:0},
+ {id:'es',name:'Spain',color:'#e0473c',s:.38,fee:.2,launch:0},
+ {id:'br',name:'Brazil',color:'#2f7fd8',s:.22,fee:.22,launch:120},
+ {id:'kz',name:'Kazakhstan',color:'#b04fd1',s:.12,fee:.16,launch:200}];
+const CH=[{id:'voice',name:'Voice AI',color:'#16b568'},{id:'wa',name:'WhatsApp AI',color:'#f2a20c'},{id:'sms',name:'SMS',color:'#2f7fd8'},{id:'email',name:'Email',color:'#d04c9a'}];
+const CHR={voice:{mix:.38,reach:.46,prom:.31,amt:1.15},wa:{mix:.30,reach:.58,prom:.24,amt:1},sms:{mix:.2,reach:.21,prom:.12,amt:.8},email:{mix:.12,reach:.14,prom:.09,amt:.9}};
+const DPD=[{id:'d30',name:'0–30 days',w:.34,r:1.18,k:1.22},{id:'d60',name:'31–60',w:.26,r:1.02,k:1.05},{id:'d90',name:'61–90',w:.18,r:.9,k:.88},{id:'d90p',name:'90+',w:.22,r:.72,k:.62}];
+const PAY=[{id:'card',name:'Card',w:.46},{id:'bank',name:'Bank transfer',w:.24},{id:'plan',name:'Payment plan',w:.22},{id:'wallet',name:'Wallet',w:.08}];
+const PLAN=[{id:'p3',name:'3 mo',w:.38},{id:'p6',name:'6 mo',w:.34},{id:'p12',name:'12 mo',w:.28}];
+const D={};
+MKTS.forEach((m,mi)=>{
+  const d={placed:[],att:{},reach:{},prom:{},pamt:{},kept:{},broken:{},coll:[],pays:[],disp:rn(.02,.05)};
+  CH.forEach(c=>{['att','reach','prom','pamt','kept','broken'].forEach(k=>d[k][c.id]=[])});
+  const avgDebt=[1450,980,760,420,310][mi], keep=rn(.52,.64);
+  for(let i=0;i<ND;i++){
+    const wd=DAY(i).getUTCDay(), we=(wd==0||wd==6)?.55:1;
+    const ramp=i<m.launch?0:Math.min(1,(i-m.launch+5)/40);
+    const trend=1+.0011*i+(mi==2?-.0009*i:0)+.12*Math.sin(i/47+mi);
+    const placed=Math.max(0,Math.round(2100*m.s*trend*we*ramp*(1+.12*nz())));
+    d.placed.push(placed);
+    let coll=0,pays=0;
+    CH.forEach(c=>{
+      const q=CHR[c.id], qual=1+(i>130&&c.id=='voice'?.18:0)+(i>200&&c.id=='wa'?.1:0);
+      const att=Math.round(placed*3.2*q.mix*(1+.1*nz()));
+      const reach=Math.round(att*q.reach*qual*(1+.08*nz()));
+      const prom=Math.round(reach*q.prom*(1+.1*nz()));
+      const pamt=prom*avgDebt*q.amt*.42*(1+.15*nz());
+      const k=Math.min(.9,keep*(1+.08*nz())*(c.id=='voice'?1.06:1));
+      d.att[c.id].push(att);d.reach[c.id].push(reach);d.prom[c.id].push(prom);d.pamt[c.id].push(pamt);
+      d.kept[c.id].push(pamt*k);d.broken[c.id].push(pamt*(1-k)*.78);
+      coll+=pamt*k;pays+=prom*k;
+    });
+    d.coll.push(coll*1.12);d.pays.push(Math.round(pays*1.1));
   }
+  d.mNew=[];d.mOld=[];d.mStock=[];d.mPayers=[];d.mAI=[];d.mHum=[];d.mPayersNew=[];
+  let stock=Math.round(52000*m.s*(m.launch?0:1));
+  for(let mo=0;mo<10;mo++){
+    const ids=[...Array(ND).keys()].filter(i=>mOf(i)==mo);
+    const nw=ids.reduce((a,i)=>a+d.placed[i],0), old=Math.round(stock*.55);
+    d.mNew.push(nw);d.mOld.push(old);stock=Math.round(stock*.78+nw*.8);d.mStock.push(stock);
+    d.mPayers.push(Math.round(ids.reduce((a,i)=>a+d.pays[i],0)*.74));d.mPayersNew.push(rn(.48,.62));
+    d.mAI.push(Math.round(ids.reduce((a,i)=>a+d.reach.voice[i]+d.reach.wa[i],0)));
+    d.mHum.push(Math.round(d.mAI[mo]*rn(.07,.11)*(1-mo*.035)));
+  }
+  D[m.id]=d;
 });
+const NAMES=['Northgate Bank','Falcon Finance','Crescent Cards','Harbor Lending','Meridian Telecom','Sterling Credit','Oasis Pay','Atlas Auto Finance','Bluewave Mobile','Cedar Microloans','Summit BNPL','Lumen Utilities','Orion Consumer Credit','Pioneer Leasing','Vista Retail Credit','Delta Energy','Kestrel Loans','Aurora Bank','Marigold Pay','Titan Fleet Finance','Sahara Telecom','Brightline Cards','Evergreen Credit Union','Nimbus Pay','Coral Bank','Iberia Consumo','Sol Finanzas','Rio Crédito','Paulista Pay','Verde Telecom','Steppe Microfinance','Altai Bank','Nomad Pay','Granite Housing','Juniper Student Loans','Beacon Health Billing','Quartz Insurance','Willow Utilities','Maple Car Loans','Polar Telecom','Lotus BNPL','Zenith Cards','Arrow Leasing','Helix Credit','Sable Water','Ember Energy','Onyx Lending','Prism Retail'];
+const SUFF=['PJSC','Ltd','plc','S.A.','LLP','Group','Holdings'];
+const SEGS=[['Credit cards','Consumer › Revolving'],['BNPL instalments','Consumer › Point of sale'],['Personal loans','Consumer › Unsecured'],['Telecom bills','Utilities & telecom › Postpaid'],['Auto loans','Secured › Vehicle'],['Microloans','Consumer › Short term'],['Utilities','Utilities & telecom › Energy & water'],['SME loans','Business › Working capital'],['Student loans','Consumer › Education'],['Rent arrears','Housing › Residential'],['Medical bills','Healthcare › Patient billing'],['Insurance premiums','Insurance › Lapsed policies']];
+const CL=NAMES.map((n,i)=>{
+  const mk=MKTS[i<14?0:i<24?1:i<29?2:i<35?3:4];
+  const w=Math.pow(R(),2.4)*(i%7==0?3:1)+.02;
+  const w0=n.split(' ')[0];
+  const port=[w0+' '+['Retail','Cards','Prime','Early','Late','Recovery'][i%6]].concat(R()>.5?[w0+' Legacy']:[]);
+  return {id:i,name:n,legal:n+' '+SUFF[i%SUFF.length],mk:mk.id,w,seg:(i*5+3)%SEGS.length,port,trend:i==3?'dead':i==9?'boom':i==5?'drop':'',disp:i==12?.004:0,csat:rn(4.1,4.8),rev:Math.round(rn(80,900)),first:Math.round(rn(1,9)),comp:rn(.2,1.4)};
+});
+MKTS.forEach(m=>{const cs=CL.filter(c=>c.mk==m.id),t=cs.reduce((a,c)=>a+c.w,0);cs.forEach(c=>c.share=c.w/t)});
+CL.forEach(c=>{
+  const d=D[c.mk];c.m=[];c.mPl=[];c.pf=rn(.65,1.5);c.start=c.id%5==2?Math.floor(rn(1,9)):0;
+  for(let mo=0;mo<10;mo++){
+    const ids=[...Array(ND).keys()].filter(i=>mOf(i)==mo);
+    let f=c.share*(1+.18*nz());
+    if(mo<c.start){c.m.push(0);c.mPl.push(0);continue}
+    if(mo==c.start&&c.start)f*=.35;
+    if(c.trend=='dead'&&mo>=5)f=0;if(c.trend=='dead'&&mo==4)f*=.3;
+    if(c.trend=='boom')f*=1+mo*.22;if(c.trend=='drop'&&mo>=7)f*=.55;
+    c.m.push(ids.reduce((a,i)=>a+d.coll[i],0)*f);c.mPl.push(Math.round(d.mNew[mo]*f*c.pf*(1+.15*nz())));
+  }
+  c.seg2=(c.seg+3)%SEGS.length;
+});
+const SG=SEGS.map((s,i)=>({id:i,name:s[0],path:s[1],m:Array(10).fill(0),cl:[]}));
+CL.forEach(c=>{c.m.forEach((v,mo)=>{SG[c.seg].m[mo]+=v*.72;SG[c.seg2].m[mo]+=v*.28});SG[c.seg].cl.push(c.id);SG[c.seg2].cl.push(c.id)});
+const FCH=[{id:'all',name:'All channels',color:'var(--ink)'},{id:'voice',name:'Voice AI',color:'#16b568'},{id:'wa',name:'WhatsApp AI',color:'#f2a20c'},{id:'sms',name:'SMS',color:'#2f7fd8'},{id:'email',name:'Email',color:'#d04c9a'}];
+const FST=[
+ {t:'Placed → contacted',c:'Circle: accounts placed that month. Passed: at least one connected call or delivered message.'},
+ {t:'Contacted → right person',c:'Circle: contacted accounts. Passed: identity confirmed (right-party contact).'},
+ {t:'Right person → promise',c:'Circle: right-party contacts. Passed: debtor agreed a date and amount.'},
+ {t:'Promise → first payment',c:'Circle: promises to pay. Passed: first payment within 7 days of the date.'},
+ {t:'First payment → settled',c:'Circle: accounts that paid. Passed: balance or plan settled in full.'}];
+const FB={all:[.71,.47,.29,.58,.36],voice:[.78,.55,.34,.62,.38],wa:[.74,.49,.27,.6,.37],sms:[.52,.31,.18,.47,.31],email:[.41,.26,.14,.44,.33]};
+const FUN={};
+FCH.forEach(c=>{FUN[c.id]={m:[],w:[]};
+  for(let mo=0;mo<9;mo++)FUN[c.id].m.push(FB[c.id].map((b,s)=>Math.min(.97,b*(1+.06*nz()+(s==2&&c.id=='voice'?mo*.018:0)+(s==0&&c.id=='sms'?-mo*.012:0)+(s==3&&mo>=5?-.05:0)))));
+  for(let w=0;w<41;w++)FUN[c.id].w.push(FB[c.id].map(b=>Math.min(.97,b*.82*(1+.12*nz()))));
+});
+const FCIRC=[];for(let mo=0;mo<9;mo++)FCIRC.push(MKTS.reduce((a,m)=>a+D[m.id].mNew[mo],0));
+const AIV=SEGS.map((s,i)=>{const tot=SG[i].m.slice(0,9).reduce((a,b)=>a+b,0),ai=rn(.55,.86);
+ return {name:s[0],path:s[1],tot,ai,hr:rn(.08,.2),cpH:rn(.11,.19),cpA:rn(.03,.06),acc:Math.round(tot/rn(260,900)),mAI:SG[i].m.slice(0,9).map((v,mo)=>v*Math.min(.95,ai*(.75+mo*.035)*(1+.07*nz())))}});
+AIV.forEach((a,i)=>{a.mH=SG[i].m.slice(0,9).map((v,mo)=>v-a.mAI[mo]);a.ar=a.hr*rn(.92,1.45)});
+AIV.sort((a,b)=>b.tot-a.tot);
 
-// ---------- ONE set of metric definitions ----------
-const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
-const METRICS = {
-  placed:        {label:"Accounts placed",   fmt:v=>v.toLocaleString("en-US"),      how:"count of accounts placed in the period", f:a=>a.length},
-  contactRate:   {label:"Contact rate",      fmt:v=>(v*100).toFixed(1)+"%",          how:"contacted accounts ÷ placed accounts", f:a=>sum(a,x=>x.contacted)/a.length},
-  promiseRate:   {label:"Promise-to-pay",    fmt:v=>(v*100).toFixed(1)+"%",          how:"accounts with a promise ÷ contacted accounts", f:a=>sum(a,x=>x.promise)/Math.max(1,sum(a,x=>x.contacted))},
-  recoveryRate:  {label:"Recovery rate",     fmt:v=>(v*100).toFixed(1)+"%",          how:"collected amount ÷ placed balance (USD, same FX)", f:a=>sum(a,x=>usd(x,x.paidAmt))/sum(a,x=>usd(x,x.balance))},
-  daysToPay:     {label:"Avg days to pay",   fmt:v=>v.toFixed(1),                    how:"mean days from placement to payment, paid accounts only", f:a=>{const p=a.filter(x=>x.paid);return p.length?sum(p,x=>x.days)/p.length:0}},
-};
-const lenderById = Object.fromEntries(LENDERS.map(l=>[l.id,l]));
-function usd(x, amt){ return amt * lenderById[x.lender].fx; }
+/* ============ state ============ */
+const SECS=[
+ {id:'portfolio',t:'Portfolio',lead:'How many accounts each market is working on.'},
+ {id:'contacts',t:'Contacts',lead:'Contact attempts, promises to pay and which of them were kept.'},
+ {id:'collections',t:'Collections',lead:'Money collected, accounts, agents and paying debtors.',subs:['Collections by market','Accounts','Agents','Paying debtors']},
+ {id:'clients',t:'Clients',lead:'Ranking of lenders by money collected since January.'},
+ {id:'segments',t:'Debt segments',lead:'Ranking of debt types by money collected since January.'},
+ {id:'health',t:'Portfolio health',lead:'Accounts and clients on the platform, month by month.',subs:['Overview','Clients','Segments','Markets']},
+ {id:'funnel',t:'Funnel',lead:'How an account moves from placement to a settled balance.',subs:['Steps for period','By channel','Channel dynamics']},
+ {id:'ai',t:'AI vs human',lead:'Where AI agents collect more than human collectors, and at what cost.'}];
+const S={sec:'portfolio',sub:{collections:0,health:0,funnel:0},per:'ytd',from:0,to:ND-1,step:'m',dir:'total',mk:new Set(MKTS.map(m=>m.id)),ch:'all',dpd:'all',pay:'all',plan:'all',excl:false,client:null,size:'top',sort:'v',card:null,ctab:0,mon:8,fstep:'m',fch:'all',ai:0,how:{},brk:false,q:'',exp:null};
+try{const h=location.hash.slice(1);if(SECS.some(s=>s.id==h))S.sec=h}catch(e){}
 
-// ---------- state ----------
-const fBank = document.getElementById("fBank"), fDays = document.getElementById("fDays");
-fBank.innerHTML = '<option value="all">All lenders</option>' + LENDERS.map(l=>`<option value="${l.id}">${l.name} (${l.cur})</option>`).join("");
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const SERIES = ["--s1","--s2","--s3","--s4"]; // fixed order, colour follows the lender
-function selected(){ const days=+fDays.value, bank=fBank.value; return accounts.filter(x=>x.day>=DAYS-days && (bank==="all"||x.lender===bank)); }
-const tip = document.getElementById("tip");
-function showTip(e, html){ tip.innerHTML = html; tip.style.display="block"; const x=Math.min(e.clientX+14, innerWidth-tip.offsetWidth-8); tip.style.left=x+"px"; tip.style.top=(e.clientY+14)+"px"; }
-function hideTip(){ tip.style.display="none"; }
+/* ============ format ============ */
+const nf=new Intl.NumberFormat('en-US');
+const N=v=>nf.format(Math.round(v));
+function money(v,parts){const a=Math.abs(v);let n,u;
+ if(a>=1e9){n=v/1e9;u='B'}else if(a>=1e6){n=v/1e6;u='M'}else if(a>=1e3){n=v/1e3;u='K'}else{n=v;u=''}
+ const s=(Math.abs(n)>=100?n.toFixed(0):Math.abs(n)>=10?n.toFixed(1):n.toFixed(2));
+ return parts?{n:'$'+s,u}:'$'+s+u}
+const pct=(v,d=1)=>(v*100).toFixed(d)+'%';
+const short=v=>{const a=Math.abs(v);return a>=1e6?(v/1e6).toFixed(a>=1e7?0:1)+'M':a>=1e3?(v/1e3).toFixed(a>=1e4?0:1)+'K':String(Math.round(v))};
+function delta(v,suf){if(!isFinite(v))return '<span class="delta z">new</span>';const c=v>0.004?'u':v<-0.004?'d':'z';
+ return `<span class="delta ${c}">${c=='u'?'▲':c=='d'?'▼':''}${suf=='pp'?Math.abs(v*100).toFixed(1)+' pp':Math.round(Math.abs(v)*100)+'%'}</span>`}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtD=i=>{const d=DAY(i);return MON[d.getUTCMonth()]+' '+d.getUTCDate()};
+const iso=i=>DAY(i).toISOString().slice(0,10);
+function unitOf(max){const u=max>=1e6?1e6:1e3;return {cap:`<div class="hint" style="font-size:10px;margin-top:8px">${u==1e6?'$M':'$K'}</div>`,f:v=>{const x=v/u;return x>=10?x.toFixed(0):x.toFixed(1)}}}
+const dim=mo=>new Date(Date.UTC(2026,mo+1,0)).getUTCDate();
 
-// ---------- tiles ----------
-function renderTiles(a){
-  document.getElementById("tiles").innerHTML = Object.values(METRICS).map(m=>
-    `<div class="tile"><div class="k">${m.label}</div><div class="v">${m.fmt(m.f(a))}</div><details><summary>how</summary>${m.how}</details></div>`).join("");
-  document.getElementById("defs").innerHTML = Object.entries(METRICS).map(([k,m])=>`<li><code>${k}</code> — ${m.how}</li>`).join("")
-    + `<li><code>collected (USD)</code> — sum of payments × lender FX; the same function feeds tiles, charts, invoices and the reconciliation gate</li>`;
+/* ============ buckets & filters ============ */
+function buckets(from,to,step){const out=[];
+ if(step=='d'){for(let i=from;i<=to;i++)out.push({ids:[i],lab:fmtD(i),short:String(DAY(i).getUTCDate()),part:false})}
+ else if(step=='w'){let i=from;while(i<=to){const wd=(DAY(i).getUTCDay()+6)%7,end=Math.min(to,i+6-wd),ids=[];for(let k=i;k<=end;k++)ids.push(k);
+   out.push({ids,lab:fmtD(i)+'–'+fmtD(end),short:fmtD(i),part:ids.length<7});i=end+1}}
+ else{let i=from;while(i<=to){const mo=mOf(i),ids=[];while(i<=to&&mOf(i)==mo)ids.push(i++);
+   out.push({ids,lab:MONL[mo],short:MON[mo].toLowerCase(),part:ids.length<dim(mo),mo})}}
+ return out}
+function clientF(mk){if(S.client==null)return 1;const c=CL[S.client];return c.mk==mk?c.share:0}
+function activeMk(){if(S.client!=null)return [MKTS.find(m=>m.id==CL[S.client].mk)];return MKTS.filter(m=>S.mk.has(m.id))}
+const chs=()=>S.ch=='all'?CH.map(c=>c.id):[S.ch];
+function dpdF(kind){if(S.dpd=='all')return 1;const b=DPD.find(x=>x.id==S.dpd);return b.w*(kind=='att'?1:kind=='reach'||kind=='prom'?b.r:b.r*b.k)}
+const kindOf=k=>k=='att'?'att':k=='reach'?'reach':k=='prom'||k=='pamt'?'prom':'kept';
+function exF(mk){return S.excl?1-D[mk].disp:1}
+function payF(){if(S.pay=='all')return 1;let f=PAY.find(p=>p.id==S.pay).w;if(S.pay=='plan'&&S.plan!='all')f*=PLAN.find(p=>p.id==S.plan).w;return f}
+function sumC(mk,key,ids,ch){const d=D[mk];let s=0;(ch?[ch]:chs()).forEach(c=>ids.forEach(i=>s+=d[key][c][i]));return s*dpdF(kindOf(key))*exF(mk)*clientF(mk)}
+function sumP(mk,key,ids){const d=D[mk];let s=0;ids.forEach(i=>s+=d[key][i]);return s*payF()*exF(mk)*clientF(mk)}
+
+/* ============ charts ============ */
+let TIPS=[];const tipId=t=>{TIPS.push(t);return TIPS.length-1};
+// items: {a total, b dark part, c bad part, short, part, tip}
+function bars(items,o={}){
+ const W=o.w||560,H=o.h||96,top=16,bot=16,n=items.length,gap=n>60?0.6:n>20?2:4,bw=(W-gap*(n-1))/n;
+ const max=Math.max(...items.map(x=>x.a),1e-9);let s=`<svg viewBox="0 0 ${W} ${H+top+bot}" width="100%" preserveAspectRatio="none" style="height:${H+top+bot}px">`;
+ const showV=n<=14&&o.vals!==false, lastFull=n-1-(items[n-1]&&items[n-1].part?1:0);
+ items.forEach((x,i)=>{const X=i*(bw+gap),h=x.a/max*H,y=top+H-h,hb=x.b!=null?x.b/max*H:0,hc=x.c!=null?x.c/max*H:0,r=Math.min(3,bw/3);
+  s+=`<g data-tip="${tipId(x.tip||'')}"><rect x="${X-gap/2}" y="0" width="${bw+gap}" height="${H+top+bot}" fill="transparent"/>`;
+  if(o.mode=='one'){const col=x.part?'var(--pnet)':o.hi!=null?(o.hi===i?'var(--net)':'var(--gross)'):o.light?(o.lastDark&&i==lastFull?'var(--net)':'var(--gross)'):'var(--net)';
+   s+=`<rect class="bar-r" x="${X}" y="${y}" width="${bw}" height="${Math.max(h,x.a>0?1.5:0)}" rx="${r}" fill="${col}"/>`}
+  else{s+=`<rect class="bar-r" x="${X}" y="${y}" width="${bw}" height="${Math.max(h,x.a>0?1.5:0)}" rx="${r}" fill="${x.part?'var(--pgross)':'var(--gross)'}"/>`;
+   if(hb>0)s+=`<rect class="bar-r" x="${X}" y="${top+H-hb}" width="${bw}" height="${hb}" rx="${Math.min(2,r)}" fill="${x.part?'var(--pnet)':'var(--net)'}"/>`;
+   if(hc>0)s+=`<rect class="bar-r" x="${X}" y="${top+H-hb-hc}" width="${bw}" height="${hc}" fill="var(--bad)"/>`}
+  if(showV&&x.a>0)s+=`<text x="${X+bw/2}" y="${y-4}" text-anchor="middle" font-size="10" fill="var(--ink2)">${o.fmt?o.fmt(x.a):short(x.a)}</text>`;
+  if(x.short&&(n<=14||o.every||i%Math.ceil(n/8)==0))s+=`<text x="${X+bw/2}" y="${top+H+12}" text-anchor="middle" font-size="9.5" fill="var(--muted)">${x.short}${x.part&&n<=14?'*':''}</text>`;
+  s+='</g>'});
+ return s+'</svg>'}
+function line(vals,labs,o={}){
+ const W=o.w||300,H=o.h||80,top=8,bot=16,n=vals.length;if(n<2)return '<div class="hint" style="padding:30px 0">one point — pick a longer period</div>';
+ const mx=Math.max(...vals),mn=Math.min(...vals),lo=mn-(mx-mn)*.25,hi=mx+(mx-mn)*.1+(mx==mn?1:0);
+ const X=i=>i*(W/(n-1)),Y=v=>top+H-(v-lo)/(hi-lo||1)*H,p=vals.map((v,i)=>`${X(i)},${Y(v)}`).join(' ');
+ let s=`<svg viewBox="0 0 ${W} ${H+top+bot}" width="100%" preserveAspectRatio="none" style="height:${H+top+bot}px"><polygon points="0,${top+H} ${p} ${W},${top+H}" fill="var(--net)" opacity=".12"/><polyline points="${p}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+ const step=W/(n-1);
+ vals.forEach((v,i)=>{s+=`<g data-tip="${tipId('<b>'+labs[i].lab+'</b><br>'+(o.fmt?o.fmt(v):N(v)))}"><rect x="${X(i)-step/2}" y="0" width="${step}" height="${H+top}" fill="transparent"/></g>`;
+  if(n<=14||i%Math.ceil(n/7)==0)s+=`<text x="${X(i)}" y="${top+H+13}" text-anchor="${i==0?'start':i==n-1?'end':'middle'}" font-size="9.5" fill="var(--muted)">${labs[i].short}</text>`});
+ return s+'</svg>'}
+function multi(series,labs,o={}){
+ const W=o.w||260,H=o.h||110,top=10,bot=16,n=labs.length;
+ const all=series.flatMap(s=>s.vals),mx=Math.max(...all),mn=Math.min(...all),lo=Math.max(0,mn-(mx-mn)*.15),hi=mx+(mx-mn)*.1;
+ const X=i=>i*(W/(n-1)),Y=v=>top+H-(v-lo)/(hi-lo||1)*H;
+ let s=`<svg viewBox="0 0 ${W} ${H+top+bot}" width="100%" preserveAspectRatio="none" style="height:${H+top+bot}px">`;
+ series.slice().reverse().forEach(se=>{s+=`<polyline points="${se.vals.map((v,i)=>X(i)+','+Y(v)).join(' ')}" fill="none" stroke="${se.color}" stroke-width="${se.bold?3:1.6}" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`});
+ s+=`<text x="${W}" y="${Y(mx)-4}" text-anchor="end" font-size="9.5" fill="var(--muted)">${pct(mx,0)}</text><text x="${W}" y="${Y(mn)+12}" text-anchor="end" font-size="9.5" fill="var(--muted)">${pct(mn,0)}</text>`;
+ const step=W/(n-1);
+ labs.forEach((l,i)=>{s+=`<g data-tip="${tipId('<b>'+l.lab+'</b><br>'+series.map(se=>se.name+': '+pct(se.vals[i])).join('<br>'))}"><rect x="${X(i)-step/2}" y="0" width="${step}" height="${H+top}" fill="transparent"/></g>`;
+  if(i%Math.ceil(n/5)==0||i==n-1)s+=`<text x="${X(i)}" y="${top+H+13}" text-anchor="${i==0?'start':i==n-1?'end':'middle'}" font-size="9.5" fill="var(--muted)" ${i==n-1?'font-weight="700"':''}>${l.short}</text>`});
+ return s+'</svg>'}
+
+/* ============ toolbar pieces ============ */
+const seg=(key,opts,cur)=>`<div class="seg">${opts.map(o=>`<button data-set="${key}" data-v="${o[0]}" class="${String(cur)==String(o[0])?'on':''}" ${o[2]?'disabled':''}>${o[1]}</button>`).join('')}</div>`;
+function periodRow(){return `<div class="row"><span class="lbl">Period</span>${seg('per',[['ytd','Since Jan 1'],['30','30 days'],['7','Week']],S.per)}
+ <input type="date" class="date" id="dFrom" value="${iso(S.from)}" min="2026-01-01" max="2026-10-21"> <span class="lbl">–</span> <input type="date" class="date" id="dTo" value="${iso(S.to)}" min="2026-01-01" max="2026-10-21">
+ <span class="lbl">Step</span>${seg('step',[['d','Days'],['w','Weeks'],['m','Months']],S.step)}</div>`}
+const mkChips=h=>MKTS.map(m=>`<button class="chip ${S.mk.has(m.id)?'':'off'}" data-mk="${m.id}" ${h?'style="height:32px"':''}><i style="background:${m.color}"></i>${m.short||m.name}</button>`).join('');
+function dirRow(){return `<div class="row"><span class="lbl">Markets</span>${seg('dir',[['total','Total'],['all','All']],S.dir)}${S.client==null?mkChips():''}</div>`}
+function clientRow(){const c=S.client!=null&&CL[S.client];return `<div class="row"><span class="lbl">Client</span>${c?`<span class="pill-x">${esc(c.name)} · ${esc(MKTS.find(m=>m.id==c.mk).name)}<button data-clr="1" title="Clear">✕</button></span>`:`<div class="search"><input id="cs" placeholder="Client or portfolio name" autocomplete="off"><div class="sugg" id="sugg"></div></div>`}</div>`}
+function legend(items){return `<div class="legend">${items.map(x=>x[0]=='how'?`<button class="how" data-how="${x[1]}">How it's calculated</button>`:x[0]=='tog'?`<button class="tog ${S.excl?'on':''}" data-excl="1">Exclude disputed accounts</button>`:`<span><i style="background:${x[0]}"></i>${x[1]}</span>`).join('')}</div>`}
+const howBox=(k,html)=>S.how[k]?`<div class="note">${html}</div>`:'';
+
+/* ============ sections ============ */
+function rowsFor(){const ms=activeMk();
+ if(S.client!=null)return [{name:CL[S.client].name,sub:ms[0].name,ms}];
+ const tot={name:'Total',sub:'selected markets',ms};
+ return S.dir=='total'?[tot]:[tot].concat(ms.map(m=>({name:m.name,sub:'fee '+pct(m.fee,0),ms:[m]})))}
+const moreBtn=()=>S.dir=='total'&&S.client==null?`<button class="more" data-set="dir" data-v="all">Show by market · ${activeMk().length}</button>`:'';
+
+function secPortfolio(){
+ const bs=buckets(S.from,S.to,'m');
+ const rows=rowsFor().map(r=>{
+  const it=bs.map(b=>{const nw=r.ms.reduce((a,m)=>a+D[m.id].mNew[b.mo]*clientF(m.id)*(b.ids.length/dim(b.mo)),0),old=r.ms.reduce((a,m)=>a+D[m.id].mOld[b.mo]*clientF(m.id),0);
+   return {a:nw+old,b:old,short:b.short,part:b.part,tip:`<b>${b.lab}${b.part?' (to Oct 21)':''}</b><br>Accounts worked: ${N(nw+old)}<br>New placements: ${N(nw)}<br>Carried over: ${N(old)}`}});
+  const tot=(it.length?it[0].b:0)+it.reduce((a,x)=>a+x.a-x.b,0);
+  return `<div class="grid-row" style="--cols:1"><div><div class="rname">${esc(r.name)}<small>${esc(r.sub)}</small></div></div><div><div class="mcap">Accounts</div><div class="big">${N(tot)}</div><div class="sub">unique accounts worked in the period</div>${bars(it,{h:90,w:900})}</div></div>`}).join('');
+ return `<div class="blk"><div class="blk-h"><div><h2>Accounts in work · ${S.dir=='total'?'total':'by market'}</h2><p>How many different accounts each market worked on, and how many of them came over from 2025.</p></div></div>
+ ${legend([['var(--gross)','New placements in 2026'],['var(--net)','Carried over from 2025'],['var(--pnet)','* partial month'],['how','p']])}
+ ${howBox('p','<b>Accounts worked</b> = accounts with at least one contact attempt in the month. A placement counts in the month the client sent it. <b>Carried over</b> = accounts placed earlier that were still open on the first day of the month. Accounts repeat across months, so the period total is the carried-over stock at the start plus new placements, not a sum of the bars. The current month is marked * and is never compared with full months.')}
+ <div class="card">${rows}</div>${moreBtn()}</div>`}
+
+function secContacts(){
+ const bs=buckets(S.from,S.to,S.step);
+ const rows=rowsFor().map(r=>{
+  const get=(k,ids)=>r.ms.reduce((a,m)=>a+sumC(m.id,k,ids),0);
+  const P=bs.map(b=>({p:get('pamt',b.ids),k:get('kept',b.ids),br:get('broken',b.ids),n:get('prom',b.ids)}));
+  const tp=P.reduce((a,x)=>a+x.p,0),tk=P.reduce((a,x)=>a+x.k,0),tb=P.reduce((a,x)=>a+x.br,0),tn=P.reduce((a,x)=>a+x.n,0);
+  const kn=tn*(tk/tp||0),bn=tn*(tb/tp||0),mp=money(tp,1);
+  const u1=unitOf(Math.max(...P.map(x=>x.p)));
+  const b1=u1.cap+bars(P.map((x,i)=>({a:x.p,b:x.k,c:x.br,short:bs[i].short,part:bs[i].part,tip:`<b>${bs[i].lab}</b><br>Promised: ${money(x.p)}<br>Kept: ${money(x.k)} (${pct(x.k/x.p||0,0)})<br>Broken by debtor: ${money(x.br)}`})),{h:70,w:300,fmt:u1.f});
+  const b2=bars(P.map((x,i)=>({a:x.n,b:x.n*(x.k/x.p||0),c:x.n*(x.br/x.p||0),short:bs[i].short,part:bs[i].part,tip:`<b>${bs[i].lab}</b><br>Promises: ${N(x.n)}<br>Kept: ${N(x.n*(x.k/x.p||0))}`})),{h:70,w:300,vals:false});
+  return `<div class="grid-row" style="--cols:3"><div><div class="rname">${esc(r.name)}<small>${esc(r.sub)}</small></div></div>
+  <div><div class="mcap">Promised amount</div><div class="big">${mp.n}<small>${mp.u}</small></div><div class="sub">Kept <span class="g">${money(tk)}</span></div><div class="sub">broken by debtor <span class="r">${money(tb)}</span></div>${b1}</div>
+  <div><div class="mcap">Promises to pay</div><div class="big">${N(tn)}</div><div class="sub">Kept <span class="g">${N(kn)}</span></div><div class="sub">broken by debtor <span class="r">${N(bn)} (${pct(bn/tn||0,0)})</span></div>${b2}</div>
+  <div><div class="mcap">Average promise</div><div class="big">${money(tp/(tn||1))}</div><div class="sub">&nbsp;</div><div class="sub">&nbsp;</div>${line(P.map(x=>x.p/(x.n||1)),bs,{h:70,fmt:v=>money(v)})}</div></div>`}).join('');
+ return `<div class="blk"><div class="blk-h"><div><h2>Promises by market</h2><p>How much debtors promised to pay after a contact, and how much of it actually arrived.</p></div></div>
+ ${legend([['var(--gross)','All promises'],['var(--net)','kept'],['var(--bad)','broken by debtor'],['var(--pnet)','* partial period'],['how','c'],['tog']])}
+ ${howBox('c','<b>Promise</b> = the debtor agreed an amount and a date in a call or chat. <b>Kept</b> = the promised amount arrived within 7 days of the date. <b>Broken by debtor</b> = the date passed with no payment and no dispute; the rest is still open. A promise counts on the day it was made. <b>Exclude disputed accounts</b> removes accounts where the debtor opened a dispute, so they do not inflate promise and kept rates.')}
+ <div class="card">${rows}</div>${moreBtn()}</div>${pivot()}`}
+
+function pivot(){
+ const ms=activeMk(),bs=buckets(S.from,S.to,'m'),cols=CH.filter(c=>S.ch=='all'||c.id==S.ch);
+ const g=(k,c,ids)=>ms.reduce((a,m)=>a+sumC(m.id,k,ids,c),0);
+ const cell=(c,ids)=>{const at=g('att',c.id,ids),re=g('reach',c.id,ids),pa=g('pamt',c.id,ids),ke=g('kept',c.id,ids);
+  return `<td class="gl">${N(at)}</td><td>${N(re)}</td><td>${pct(re/at||0)}</td><td>${money(pa)}</td><td>${money(ke)}</td><td>${pct(ke/pa||0)}</td>`};
+ const all=[].concat(...bs.map(b=>b.ids));
+ return `<div class="blk"><div class="blk-h"><div><h2>Pivot · month × channel</h2><p>Attempts, reach and the share of promised money that arrived, per channel.</p></div><button class="chip" data-csv="pivot">⤓ Download CSV</button></div>
+ <div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th rowspan="2">Month</th>${cols.map(c=>`<th class="grp" colspan="6">${c.name}</th>`).join('')}</tr>
+ <tr>${cols.map(()=>'<th class="gl">Attempts</th><th>Reached</th><th>% reached</th><th>Promised</th><th>Kept</th><th>% kept</th>').join('')}</tr></thead>
+ <tbody>${bs.map(b=>`<tr><td>${b.lab}${b.part?' *':''}</td>${cols.map(c=>cell(c,b.ids)).join('')}</tr>`).join('')}
+ <tr class="tot"><td>Total</td>${cols.map(c=>cell(c,all)).join('')}</tr></tbody></table></div>
+ <div class="foot">Reached = connected call, read message or opened email. % kept = kept amount ÷ promised amount for promises made that month, so recent months are still filling up. All filters above apply. * partial month.</div></div></div>`}
+
+function secCollections(){const sub=S.sub.collections,rows=rowsFor();let body='';
+ if(sub==0){const bs=buckets(S.from,S.to,S.step);
+  body=`${legend([['var(--gross)','Gross'],['var(--net)','of which net of fees'],['var(--pnet)','* partial period'],['how','s'],['tog']])}
+  ${howBox('s','<b>Gross collected</b> = all payments from debtors on accounts in work, by payment date. <b>Net</b> = gross minus the platform fee, which differs by market (15–22%). <b>Payments</b> = payment transactions; a debtor on a plan makes several. <b>Average payment</b> = gross ÷ payments. Payment method and plan length filters split by the method of each transaction.')}
+  <div class="card">${rows.map(r=>{const v=bs.map(b=>{const g=r.ms.reduce((a,m)=>a+sumP(m.id,'coll',b.ids),0),n=r.ms.reduce((a,m)=>a+sumP(m.id,'coll',b.ids)*(1-m.fee),0),p=r.ms.reduce((a,m)=>a+sumP(m.id,'pays',b.ids),0);return {g,n,p}});
+   const tg=v.reduce((a,x)=>a+x.g,0),tn=v.reduce((a,x)=>a+x.n,0),tpay=v.reduce((a,x)=>a+x.p,0),mg=money(tg,1);
+   return `<div class="grid-row" style="--cols:3"><div><div class="rname">${esc(r.name)}<small>${esc(r.sub)}</small></div></div>
+   <div><div class="mcap">Gross collected</div><div class="big">${mg.n}<small>${mg.u}</small></div><div class="sub">Net <span class="g">${money(tn)}</span></div>${(u=>u.cap+bars(v.map((x,i)=>({a:x.g,b:x.n,short:bs[i].short,part:bs[i].part,tip:`<b>${bs[i].lab}</b><br>Gross: ${money(x.g)}<br>Net: ${money(x.n)}`})),{h:70,w:300,fmt:u.f}))(unitOf(Math.max(...v.map(x=>x.g))))}</div>
+   <div><div class="mcap">Payments</div><div class="big">${N(tpay)}</div><div class="sub">per day <span class="g">${N(tpay/Math.max(1,S.to-S.from+1))}</span></div>${bars(v.map((x,i)=>({a:x.p,b:x.p,short:bs[i].short,part:bs[i].part,tip:`<b>${bs[i].lab}</b><br>Payments: ${N(x.p)}`})),{h:70,w:300,vals:false})}</div>
+   <div><div class="mcap">Average payment</div><div class="big">${money(tg/(tpay||1))}</div><div class="sub">&nbsp;</div>${line(v.map(x=>x.g/(x.p||1)),bs,{h:70,fmt:v=>money(v)})}</div></div>`}).join('')}</div>${moreBtn()}`}
+ else{const bs=buckets(S.from,S.to,'m');
+  const cfg=[null,
+   {a:['In work','accounts open at month end',(m,mo)=>D[m.id].mStock[mo],'line'],b:['With a payment','unique accounts, sum of months',(m,mo)=>D[m.id].mPayers[mo]]},
+   {a:['AI conversations','connected calls and chats',(m,mo)=>D[m.id].mAI[mo]],b:['Escalated to a human','conversations handed to a collector',(m,mo)=>D[m.id].mHum[mo]]},
+   {a:['Paying debtors','unique people who paid, sum of months',(m,mo)=>D[m.id].mPayers[mo]*.86],b:['First-time payers','paid for the first time this year',(m,mo)=>D[m.id].mPayers[mo]*.86*D[m.id].mPayersNew[mo]]}][sub];
+  body=`${legend([['var(--pnet)','* partial month'],['how','u'+sub]])}${howBox('u'+sub,'Unique accounts and people cannot be added up across days: one account paying twice in a month is one account. Bars are monthly uniques; the headline for a long period is their sum, an upper bound of the true unique count. <b>Escalated</b> = the AI agent handed the conversation to a human collector (dispute, hardship, request). The partial month is never compared with full ones.')}
+  <div class="card">${rows.map(r=>{const va=bs.map(b=>r.ms.reduce((a,m)=>a+cfg.a[2](m,b.mo)*clientF(m.id),0)),vb=bs.map(b=>r.ms.reduce((a,m)=>a+cfg.b[2](m,b.mo)*clientF(m.id),0));
+   const isL=cfg.a[3]=='line',A=isL?va[va.length-1]:va.reduce((a,b)=>a+b,0),B=vb.reduce((a,b)=>a+b,0);
+   const chA=isL?line(va,bs,{h:80}):bars(va.map((v,i)=>({a:v,short:bs[i].short,part:bs[i].part,tip:`<b>${bs[i].lab}</b><br>${cfg.a[0]}: ${N(v)}`})),{mode:'one',h:80,w:520});
+   return `<div class="grid-row" style="--cols:2"><div><div class="rname">${esc(r.name)}<small>${esc(r.sub)}</small></div></div>
+   <div><div class="mcap">${cfg.a[0]}</div><div class="big">${N(A)}</div><div class="sub">${isL?'on '+fmtD(S.to):cfg.a[1]}</div>${chA}</div>
+   <div><div class="mcap">${cfg.b[0]}</div><div class="big">${N(B)}</div><div class="sub">${cfg.b[1]}</div>${bars(vb.map((v,i)=>({a:v,short:bs[i].short,part:bs[i].part,tip:`<b>${bs[i].lab}</b><br>${cfg.b[0]}: ${N(v)}`})),{mode:'one',h:80,w:520})}</div></div>`}).join('')}</div>${moreBtn()}`}
+ return body+pager('collections')}
+
+function pager(sec){const s=SECS.find(x=>x.id==sec),i=S.sub[sec],n=s.subs.length;
+ return `<div class="pager">${i>0?`<button class="pv" data-sub="${i-1}">← Back</button>`:'<span></span>'}<span>${i+1} of ${n}</span>${i<n-1?`<button class="nx" data-sub="${i+1}">Next: ${s.subs[i+1]} →</button>`:'<span></span>'}</div>`}
+
+/* ranking: clients and segments */
+const TIERS={clients:[['Enterprise',.04,''],['Mid-market',.012,'mid'],['Growth',.004,'mid'],['Small',0,'mid']],segments:[['Large',.11,''],['Mid-size',.07,'mid'],['Niche',0,'mid']]};
+function tierOf(v,tot,kind){const t=TIERS[kind].find(x=>v/tot>x[1])||TIERS[kind][TIERS[kind].length-1];return [t[0],t[2]]}
+function rankData(kind){
+ const ents=kind=='clients'?CL.filter(c=>S.mk.has(c.mk)).map(c=>({id:c.id,name:c.name,sub:c.legal+': '+c.port.join(', '),m:c.m,c})):SG.map(s=>({id:s.id,name:s.name,sub:s.path,m:s.m,s}));
+ const tot=ents.reduce((a,e)=>a+e.m.reduce((x,y)=>x+y,0),0);
+ ents.forEach(e=>{e.v=e.m.reduce((a,b)=>a+b,0);e.sh=e.v/tot;e.tier=tierOf(e.v,tot,kind);e.mom=e.m[7]?e.m[8]/e.m[7]-1:Infinity;e.momAbs=e.m[8]});
+ return {ents,tot}}
+function rankList(kind){const {ents,tot}=rankData(kind);let list=ents.slice();
+ if(S.q)list=list.filter(e=>(e.name+' '+e.sub).toLowerCase().includes(S.q.toLowerCase()));
+ if(S.size!='top'&&S.size!='all')list=list.filter(e=>e.tier[0]==S.size);
+ const mm=e=>e.mom===Infinity?-9:e.mom;
+ list.sort((a,b)=>S.sort=='v'||S.sort=='sh'?b.v-a.v:mm(b)-mm(a));
+ if(S.size=='top')list=list.slice(0,10);return {list,tot}}
+function secRank(kind){
+ const {list,tot}=rankList(kind),lt=list.reduce((a,e)=>a+e.v,0);
+ const open=kind=='clients'&&S.card!=null&&list.some(e=>e.id==S.card);
+ const rows=list.map((e,i)=>{
+  const dead=e.m.slice(5).every(v=>v==0);
+  const mb=bars(e.m.map((v,mo)=>({a:v,short:MON[mo].toLowerCase(),part:mo==9,tip:`<b>${MONL[mo]}${mo==9?' (to Oct 21)':''}</b><br>${money(v)}`})),{mode:'one',light:true,lastDark:true,h:open?34:30,w:open?380:300,fmt:v=>v>=1e6?(v/1e6).toFixed(1)+'M':Math.round(v/1e3)+'K'});
+  const right=dead?'<span class="tag dead">no payments since Jun</span>':`${delta(e.mom)} <span class="hint" style="color:var(--ink2)">${money(e.momAbs)}</span>`;
+  const tags=kind=='clients'?`<span class="tag ${e.tier[1]}">${e.tier[0]}</span>${e.c.disp?`<span class="tag warn">disputed ${pct(e.c.disp)}</span>`:''}<button class="lnk" data-card="${e.id}">card ›</button>`:`<span class="tag ${e.tier[1]}">${e.tier[0]}</span><button class="lnk" data-exp="${e.id}">clients ${S.exp===e.id?'⌃':'⌄'}</button>`;
+  const exp=kind=='segments'&&S.exp===e.id?`<tr><td></td><td colspan="5"><div class="hint" style="padding:0 0 6px">Largest clients in this segment, collected since Jan 1</div>${e.s.cl.map(id=>CL[id]).sort((a,b)=>b.m.reduce((x,y)=>x+y,0)-a.m.reduce((x,y)=>x+y,0)).slice(0,5).map(c=>`<div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:3px 0;max-width:520px"><span>${esc(c.name)} <span class="hint">· ${MKTS.find(m=>m.id==c.mk).name}</span></span><b>${money(c.m.reduce((x,y)=>x+y,0))}</b></div>`).join('')}</td></tr>`:'';
+  if(open)return `<tr class="${S.card==e.id?'sel':''}"><td class="hint">${i+1}</td><td colspan="5"><div style="display:flex;justify-content:space-between;gap:10px"><div><div class="nm">${esc(e.name)} ${tags}</div><div class="lg">${esc(e.sub)}</div></div><div style="text-align:right"><div class="v">${N(e.v/1e3)}</div><div class="share">${pct(e.sh)}</div></div></div>${mb}<div style="margin-top:4px">${right}</div></td></tr>`;
+  return `<tr><td class="hint">${i+1}</td><td><div class="nm">${esc(e.name)} ${tags}</div><div class="lg">${esc(e.sub)}</div></td><td class="v">${N(e.v/1e3)}</td><td class="share hide-m">${pct(e.sh)}<s><i style="width:${Math.max(2,e.sh/list[0].sh*100)}%"></i></s></td><td class="hide-m" style="width:34%">${mb}</td><td style="text-align:right;white-space:nowrap">${right}</td></tr>`+exp}).join('');
+ const head=open?'':`<tr><th>#</th><th>${kind=='clients'?'Client and portfolios':'Segment'}</th><th class="s" data-sort="v" style="text-align:right">Collected, $K ${S.sort!='mom'?'▾':''}</th><th class="hide-m" style="text-align:right">Share</th><th class="hide-m">By month</th><th class="s" data-sort="mom" style="text-align:right">Sep vs Aug ${S.sort=='mom'?'▾':''}</th></tr>`;
+ const noun=kind=='clients'?'clients':'segments',title=S.size=='top'?'Top-10 '+noun:S.size=='all'?'All '+noun:S.size+' '+noun;
+ return `<div class="blk"><div class="blk-h"><div><h2>${title}</h2><p style="font-weight:600;color:var(--ink);opacity:1">${list.length} ${noun}, ${money(lt)} — ${pct(lt/tot)} of collections. <span style="font-weight:400;color:var(--muted)">Data through Oct 21.</span></p></div>
+ ${legend([['var(--gross)','previous months'],['var(--net)','last full month'],['var(--pnet)','partial month *'],['how','r'+kind]])}</div>
+ ${howBox('r'+kind,kind=='clients'?'<b>Collected</b> = gross payments on the client\'s accounts since January 1, by payment date. <b>Tier</b> is set by share of total collections: Enterprise > 4%, Mid-market > 1.2%, Growth > 0.4%. <b>Sep vs Aug</b> compares the last two full months, so a partial month never looks like a drop. <b>Disputed</b> = share of accounts with an open dispute; above 0.3% the client is flagged.':'A client\'s collections are split between its main and secondary debt type (72% / 28%). <b>Sep vs Aug</b> compares the last two full months. Open “clients” to see who drives a segment.')}
+ ${list.length?`<div class="rank-wrap ${open?'open':''}"><div class="card" style="padding:0 8px"><table class="rank">${head}${rows}</table></div>${open?cardPanel(list):''}</div>`:'<div class="note">Nothing matches the filters.</div>'}</div>`}
+function cardPanel(list){
+ const i=list.findIndex(e=>e.id==S.card),e=list[i],c=e.c,mk=MKTS.find(m=>m.id==c.mk),pl=c.mPl.reduce((a,b)=>a+b,0);
+ const ML=MON.map((x,k)=>({lab:MONL[k],short:x.toLowerCase()}));let ch='';
+ if(S.ctab==0)ch=`<div class="h" style="font-weight:700;margin-bottom:8px">Collected by month, $K</div>${bars(e.m.map((v,mo)=>({a:v,short:MON[mo].toLowerCase(),part:mo==9,tip:`<b>${MONL[mo]}</b><br>${money(v)}`})),{mode:'one',light:true,lastDark:true,h:150,w:460,fmt:v=>N(v/1e3)})}`;
+ if(S.ctab==1)ch=`<div class="h" style="font-weight:700;margin-bottom:8px">Complaints per 1,000 conversations</div>${line(e.m.map((_,mo)=>c.comp*(1+.25*Math.sin(mo+c.id))),ML,{h:140,w:460,fmt:x=>x.toFixed(2)})}`;
+ if(S.ctab==2)ch=`<div class="h" style="font-weight:700;margin-bottom:8px">Minutes from placement to first contact, median</div>${bars(e.m.map((_,mo)=>Math.max(1,c.first+3*Math.sin(mo*.9+c.id))).map((x,mo)=>({a:x,short:MON[mo].toLowerCase(),part:mo==9,tip:`<b>${MONL[mo]}</b><br>${x.toFixed(1)} min`})),{mode:'one',h:140,w:460,fmt:x=>x.toFixed(0)})}`;
+ if(S.ctab==3)ch=`<div class="h" style="font-weight:700;margin-bottom:8px">Accounts placed by month</div>${bars(c.mPl.map((x,mo)=>({a:x,short:MON[mo].toLowerCase(),part:mo==9,tip:`<b>${MONL[mo]}</b><br>${N(x)} accounts`})),{mode:'one',light:true,lastDark:true,h:140,w:460})}`;
+ return `<div class="panel"><div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="hint" style="font-family:Onest;font-weight:700;font-size:13px">#${i+1}</span><span class="h" style="font-size:24px;font-weight:800;letter-spacing:-.5px">${esc(e.name)}</span><span class="tag ${e.tier[1]}">${e.tier[0]}</span></div><div class="hint" style="margin-top:2px">${esc(c.legal)} · ${mk.name}</div></div><button class="x" data-card="-1" title="Close">✕</button></div>
+ <div class="seg" style="margin-top:12px;display:inline-flex">${['Collections','Quality','Speed','Portfolio'].map((t,k)=>`<button data-ctab="${k}" class="${S.ctab==k?'on':''}">${t}</button>`).join('')}</div>
+ <div class="kgrid"><div><div class="mcap">Collected since Jan</div><div class="big">${money(e.v)}</div><div class="sub">share ${pct(e.sh)}</div></div>
+ <div><div class="mcap">Sep vs Aug</div><div class="big" style="color:${!isFinite(e.mom)?'inherit':e.mom<0?'var(--down)':'var(--up)'}">${isFinite(e.mom)?(e.mom>0?'▲ ':'▼ ')+Math.round(Math.abs(e.mom)*100)+'%':'—'}</div><div class="sub">${money(e.momAbs)} in September</div></div>
+ <div><div class="mcap">Average payment</div><div class="big">${money(e.v/Math.max(1,pl*.31))}</div><div class="sub">gross ÷ payments</div></div>
+ <div><div class="mcap">CSAT</div><div class="big">${c.csat.toFixed(1)} ★</div><div class="sub">${N(c.rev)} post-call surveys</div></div>
+ <div><div class="mcap">First contact</div><div class="big">${c.first} min</div><div class="sub">median after placement</div></div>
+ <div><div class="mcap">Accounts placed</div><div class="big">${N(pl)}</div><div class="sub">since Jan 1</div></div></div></div>
+ <div class="card">${ch}</div>
+ <div style="display:flex;justify-content:space-between;align-items:center"><button class="chip" data-card="${list[Math.max(0,i-1)].id}" ${i==0?'disabled':''}>‹ Previous</button><span class="hint">${i+1} of ${list.length}</span><button class="chip" data-card="${list[Math.min(list.length-1,i+1)].id}" ${i==list.length-1?'disabled':''}>Next ›</button></div></div>`}
+
+function secHealth(){const sub=S.sub.health,mo=S.mon,ms=MKTS.filter(m=>S.mk.has(m.id));
+ const T=[['Accounts in stock',k=>ms.reduce((a,m)=>a+D[m.id].mStock[k],0)],['Active clients',k=>CL.filter(c=>S.mk.has(c.mk)&&c.mPl[k]>0).length],['Accounts with a payment',k=>ms.reduce((a,m)=>a+D[m.id].mPayers[k],0)],['Clients with payments',k=>CL.filter(c=>S.mk.has(c.mk)&&c.m[k]>0).length]];
+ let body='';
+ if(sub==0)body=`<div class="tiles">${T.map(t=>{const v=t[1](mo),p=mo?t[1](mo-1):NaN;return `<div class="tile"><div class="mcap">${t[0]}</div><div class="big">${N(v)}</div><div class="sub">${mo?delta(v/p-1)+' vs '+MONL[mo-1]:'first month'}</div>${bars([...Array(10).keys()].map(k=>({a:t[1](k),short:k%2==0?MON[k].toLowerCase():'',part:k==9&&k!=mo,tip:`<b>${MONL[k]}</b><br>${N(t[1](k))}`})),{mode:'one',hi:mo,h:64,w:260,vals:false,every:true})}</div>`}).join('')}</div>`;
+ else{let rows;
+  if(sub==1)rows=CL.filter(c=>S.mk.has(c.mk)).map(c=>({n:c.name,s:MKTS.find(m=>m.id==c.mk).name,a:c.mPl[mo],ap:mo?c.mPl[mo-1]:0,b:c.m[mo]}));
+  if(sub==2)rows=SG.map(s=>({n:s.name,s:s.path,a:s.cl.reduce((x,id)=>x+CL[id].mPl[mo]*.5,0),ap:mo?s.cl.reduce((x,id)=>x+CL[id].mPl[mo-1]*.5,0):0,b:s.m[mo]}));
+  if(sub==3)rows=ms.map(m=>({n:m.name,s:'fee '+pct(m.fee,0),a:D[m.id].mNew[mo],ap:mo?D[m.id].mNew[mo-1]:0,b:CL.filter(c=>c.mk==m.id).reduce((x,c)=>x+c.m[mo],0)}));
+  rows.sort((a,b)=>b.b-a.b);
+  body=`<div class="card"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>${['','Client','Segment','Market'][sub]}</th><th>Accounts placed</th><th>vs ${mo?MON[mo-1]:'—'}</th><th>Collected</th><th>Collected per account placed</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr><td><b style="font-weight:600">${esc(r.n)}</b> <span class="hint">${esc(r.s)}</span></td><td>${N(r.a)}</td><td>${mo&&r.ap?delta(r.a/r.ap-1):r.a?'<span class="delta z">new</span>':'—'}</td><td>${money(r.b)}</td><td>${r.a?money(r.b/r.a):'—'}</td></tr>`).join('')}</tbody></table></div><div class="foot">${MONL[mo]}${mo==9?' (partial, to Oct 21)':''}. Collected per account mixes this month's money with older placements, so it shows load, not a recovery rate.</div></div>`}
+ return `<div class="blk"><div class="blk-h"><div><h2>${MONL[mo]} 2026 <span class="hint" style="font-family:'Golos Text';font-size:13px;font-weight:400">· ${ms.length==5?'all markets':ms.map(m=>m.short||m.name).join(', ')}</span></h2></div>${legend([['how','h']])}</div>
+ ${howBox('h','<b>Accounts in stock</b> = placed accounts still open at month end. <b>Active client</b> = sent at least one account that month. <b>With a payment</b> = unique accounts with any payment in the month. The selected month is dark green; arrows compare it with the month before.')}${body}</div>${pager('health')}`}
+
+function secFunnel(){const sub=S.sub.funnel,wk=S.fstep=='w',src=k=>wk?FUN[k].w:FUN[k].m;
+ const labs=wk?FUN.all.w.map((_,i)=>({lab:'Week '+(i+1),short:'w'+(i+1)})):MON.slice(0,9).map((m,i)=>({lab:MONL[i],short:m.toLowerCase()}));
+ let body='';
+ if(sub==0){const sel=src(S.fch),avg=s=>sel.reduce((a,r)=>a+r[s],0)/sel.length;
+  const circ=s=>{let c=FCIRC.reduce((a,b)=>a+b,0)/9/(wk?4.35:1);for(let k=0;k<s;k++)c*=avg(k);return c};
+  body=`<div class="steps">${FST.map((f,s)=>{const v=avg(s),a=circ(s);return `<div class="step"><div class="mcap">Step ${s+1}</div><div class="t">${f.t}</div><div class="pc">${(v*100).toFixed(1)}<small>%</small></div><div class="track"><i style="width:${v*100}%"></i></div><div class="d">average per ${wk?'week':'month'}: ${short(a)} → ${short(a*v)} accounts</div><div class="e">${f.c}</div></div>`}).join('')}</div>
+  <p class="hint" style="margin-top:12px">${wk?'41 full weeks':'January – September 2026 · 9 full months'} · ${FCH.find(c=>c.id==S.fch).name}. Disputed accounts excluded; channel = first successful contact of the ${wk?'week':'month'}.</p>`}
+ if(sub==1){const show=S.dir=='total'?['all']:FCH.map(c=>c.id);
+  body=`${legend([['how','f']])}${howBox('f','A step counts for an account once per '+(wk?'week':'month')+'. Channel = the channel of the first successful contact in the period. <b>Weeks and months must not be compared</b>: fewer accounts finish a step inside a week, so weekly rates are lower. For a period of several weeks or months the rate is everyone who passed ÷ everyone in the circle, so bigger months weigh more.')}
+  <div class="card">${show.map(k=>{const c=FCH.find(x=>x.id==k),rr=src(k);return `<div class="grid-row" style="--cols:5"><div><div class="rname"><span style="display:inline-block;width:14px;height:3px;background:${c.color};vertical-align:middle;margin-right:6px"></span>${c.name}</div></div>${FST.map((f,s)=>{const v=rr.reduce((a,r)=>a+r[s],0)/rr.length;return `<div><div class="mcap" style="min-height:26px">${s+1} · ${f.t}</div><div class="big" style="font-size:22px">${(v*100).toFixed(1)}<small>%</small></div><div class="sub"><span class="delta u" style="font-weight:500">average per ${wk?'week':'month'}</span></div>${bars(rr.map((r,i)=>({a:r[s],short:labs[i].short,tip:`<b>${labs[i].lab}</b><br>${pct(r[s])}`})),{mode:'one',h:56,w:220,fmt:x=>Math.round(x*100)})}</div>`}).join('')}</div>`}).join('')}</div>${S.dir=='total'?`<button class="more" data-set="dir" data-v="all">Show by channel · 4</button>`:''}`}
+ if(sub==2){body=`<div class="legend" style="gap:8px">${FCH.map(c=>`<span class="chip" style="height:30px;cursor:default"><i style="background:${c.color}${c.id=='all'?';height:3px':''}"></i>${c.name}</span>`).join('')}</div>
+  <div class="steps">${FST.map((f,s)=>{const ser=FCH.map(c=>({name:c.name,color:c.color,bold:c.id=='all',vals:src(c.id).map(r=>r[s])})),al=ser[0].vals;
+   const best=ser.slice(1).map(x=>({n:x.name,v:x.vals[x.vals.length-1]})).sort((a,b)=>b.v-a.v)[0];
+   return `<div class="step"><div class="mcap" style="min-height:26px">${s+1} · ${f.t}</div><div class="pc" style="font-size:26px">${(al[al.length-1]*100).toFixed(1)}<small>%</small></div><div class="d">All channels · ${labs[labs.length-1].lab}<br>${delta(al[al.length-1]-al[0],'pp')} since ${labs[0].lab}</div>${multi(ser,labs,{h:100})}<div class="e" style="padding-top:6px">best: ${best.n} · ${pct(best.v)}</div></div>`}).join('')}</div>
+  <div class="card" style="margin-top:14px"><div style="display:flex;justify-content:space-between;padding:14px 18px 4px"><div class="h" style="font-weight:700">Summary: ${labs[0].lab} → ${labs[labs.length-1].lab}</div><span class="hint">change, pp</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Channel</th>${FST.map((f,s)=>`<th>${s+1} · ${f.t}</th>`).join('')}</tr></thead><tbody>
+  ${FCH.map(c=>{const rr=src(c.id);return `<tr><td><span style="display:inline-block;width:14px;height:${c.id=='all'?3:2}px;background:${c.color};vertical-align:middle;margin-right:8px"></span><b style="font-weight:600">${c.name}</b></td>${FST.map((f,s)=>`<td>${pct(rr[0][s])} → <b>${pct(rr[rr.length-1][s])}</b> ${delta(rr[rr.length-1][s]-rr[0][s],'pp')}</td>`).join('')}</tr>`}).join('')}</tbody></table></div></div>`}
+ return body+pager('funnel')}
+
+function secAI(){const a=AIV[S.ai];
+ const T=AIV.reduce((x,r)=>x+r.tot,0),A=AIV.reduce((x,r)=>x+r.tot*r.ai,0);
+ const cpa=AIV.reduce((x,r)=>x+r.cpA*r.tot*r.ai,0)/A,cph=AIV.reduce((x,r)=>x+r.cpH*r.tot*(1-r.ai),0)/(T-A),mx=Math.max(...AIV.map(r=>r.tot));
+ const rows=AIV.filter(r=>!S.q||r.name.toLowerCase().includes(S.q.toLowerCase())).map(r=>{const k=AIV.indexOf(r);return `<tr class="${S.ai==k?'sel':''}" data-ai="${k}" style="cursor:pointer"><td><b style="font-weight:600">${r.name}</b><div class="hint">${r.path}</div></td>
+ <td style="text-align:left;min-width:180px"><div style="height:6px;border-radius:3px;background:var(--net);width:${r.tot*r.ai/mx*100}%"></div><div style="height:6px;border-radius:3px;background:var(--bad);width:${r.tot*(1-r.ai)/mx*100}%;margin-top:3px"></div><div class="hint" style="margin-top:3px">${money(r.tot*r.ai)} / ${money(r.tot*(1-r.ai))}</div></td>
+ <td><b>${pct(r.ai,0)}</b></td><td>${pct(r.ar)} <span class="hint">vs ${pct(r.hr)}</span></td><td>${delta(r.ar/r.hr-1)}</td><td>$${r.cpA.toFixed(3)} <span class="hint">vs $${r.cpH.toFixed(3)}</span></td></tr>`}).join('');
+ const labs=MON.slice(0,9).map((m,i)=>({lab:MONL[i],short:m.toLowerCase()}));
+ return `<div class="blk"><div class="blk-h"><div><h2>January – September 2026 <span class="hint" style="font-family:'Golos Text';font-size:13px;font-weight:400">· 12 debt segments</span></h2></div>${legend([['how','a']])}</div>
+ ${howBox('a','<b>Collected by AI</b> = payments on accounts whose last conversation before the payment was with an AI agent (voice or chat); <b>human</b> = with a collector. <b>Recovery rate</b> = collected ÷ placed balance for accounts placed in the period. Routing is a randomised 80/20 split, so the two groups get comparable accounts. <b>Cost per $1</b> = agent and telephony cost ÷ money collected. <b>Lift</b> = AI rate ÷ human rate − 1.')}
+ <div class="tiles" style="margin-bottom:14px"><div class="tile"><div class="mcap">Collected, all segments</div><div class="big">${money(T)}</div><div class="sub">January – September</div></div>
+ <div class="tile"><div class="mcap">Collected by AI agents</div><div class="big">${money(A)}</div><div class="sub">${pct(A/T)} of the total</div></div>
+ <div class="tile"><div class="mcap">Cost per $1 collected</div><div class="big">$${cpa.toFixed(3)}</div><div class="sub">AI · human <span class="r">$${cph.toFixed(3)}</span></div></div>
+ <div class="tile"><div class="mcap">Segments where AI recovers more</div><div class="big">${AIV.filter(r=>r.ar>r.hr).length} of 12</div><div class="sub">same placements, randomised routing</div></div></div>
+ <div class="rank-wrap open ai-wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;flex-wrap:wrap"><div class="search"><input id="aiq" placeholder="Find a segment" value="${esc(S.q)}" autocomplete="off"></div><div class="legend" style="margin:0"><span><i style="background:var(--net)"></i>AI agents</span><span><i style="background:var(--bad)"></i>Human collectors</span></div></div>
+ <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Segment</th><th style="text-align:left">Collected: AI / human</th><th>AI share</th><th>Recovery: AI vs human</th><th>Lift</th><th>Cost per $1</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+ <div class="panel"><div class="card"><div class="hint">click another segment to compare</div><div class="h" style="font-size:24px;font-weight:800;letter-spacing:-.5px">${a.name}</div><div class="hint">${a.path}</div>
+ <div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap"><button class="chip" data-csv="ai">⤓ Download segment report (CSV)</button></div>
+ <div class="kgrid" style="grid-template-columns:repeat(3,1fr)"><div><div class="big" style="font-size:20px">${money(a.tot*a.ai)}</div><div class="sub">by AI agents</div></div><div style="border-left:1px solid var(--line);border-top:0"><div class="big" style="font-size:20px">${pct(a.ar)}</div><div class="sub">AI recovery rate</div></div><div style="border-left:1px solid var(--line);border-top:0"><div class="big" style="font-size:20px">${N(a.acc)}</div><div class="sub">accounts</div></div></div>
+ <div class="mcap" style="margin:16px 0 6px">Share of the segment's monthly collections</div>${multi([{name:'AI agents',color:'var(--net)',bold:true,vals:a.mAI.map((v,i)=>v/(v+a.mH[i]))},{name:'Human',color:'var(--bad)',vals:a.mH.map((v,i)=>v/(v+a.mAI[i]))}],labs,{h:120,w:440})}
+ <div class="legend" style="margin:8px 0 0"><span><i style="background:var(--net)"></i>AI agents</span><span><i style="background:var(--bad)"></i>Human collectors</span></div></div></div></div></div>`}
+
+/* ============ toolbar per section ============ */
+function toolbar(){const s=S.sec,subs=SECS.find(x=>x.id==s).subs;let h='';
+ const subSeg=subs?`<div class="seg">${subs.map((t,i)=>`<button data-sub="${i}" class="${S.sub[s]==i?'on':''}"><span class="k">${i+1}</span>${t}</button>`).join('')}</div>`:'';
+ if(s=='portfolio')h=`<div class="row"><span class="lbl">Period</span>${seg('per',[['ytd','Since Jan 1'],['q','Last 4 months']],S.per=='q'?'q':'ytd')}</div>${dirRow()}${clientRow()}`;
+ if(s=='contacts')h=periodRow()+dirRow()+`<div class="row"><span class="lbl">Channel</span>${seg('ch',[['all','All']].concat(CH.map(c=>[c.id,c.name])),S.ch)}<span class="lbl">Days past due</span>${seg('dpd',[['all','All']].concat(DPD.map(c=>[c.id,c.name])),S.dpd)}<span class="hint">at placement</span></div>`+clientRow();
+ if(s=='collections')h=`<div class="row">${subSeg}</div>`+periodRow()+dirRow()+`<div class="row"><span class="lbl">Payment</span>${seg('pay',[['all','All']].concat(PAY.map(c=>[c.id,c.name])),S.pay)}<span class="lbl">Plan length</span>${seg('plan',[['all','All']].concat(PLAN.map(c=>[c.id,c.name,S.pay!='plan'])),S.plan)}<span class="hint">only payment plans have a length</span></div>`+clientRow();
+ if(s=='clients'||s=='segments'){const {ents}=rankData(s),cnt=t=>ents.filter(e=>e.tier[0]==t).length;
+  h=(s=='clients'&&S.card!=null?`<div class="row"><button class="chip" data-card="-1">‹ All clients</button><span class="hint">card open · the ranking keeps your filters</span></div>`:'')+
+  `<div class="row"><span class="lbl">Size</span><div class="seg">${[['top','Top-10',10],['all','All',ents.length]].concat(TIERS[s].map(t=>[t[0],t[0],cnt(t[0])])).map(o=>`<button data-set="size" data-v="${o[0]}" class="${S.size==o[0]?'on':''}">${o[1]} <span class="c">${o[2]}</span></button>`).join('')}</div>
+  <div class="search"><input id="rq" placeholder="${s=='clients'?'Client, legal entity or portfolio':'Segment'}" value="${esc(S.q)}" autocomplete="off"></div></div>${s=='clients'?`<div class="row"><span class="lbl">Markets</span>${mkChips(1)}</div>`:''}`}
+ if(s=='health')h=`<div class="row">${subSeg}</div><div class="row"><span class="lbl">Month</span>${seg('mon',MON.map((m,i)=>[i,m+(i==9?'*':'')]),S.mon)}</div><div class="row"><span class="lbl">Markets</span>${mkChips(1)}</div>`;
+ if(s=='funnel')h=`<div class="row">${subSeg}</div><div class="row"><span class="lbl">Step</span>${seg('fstep',[['w','Weeks'],['m','Months']],S.fstep)}${S.sub.funnel==0?`<span class="lbl">Channel</span>${seg('fch',FCH.map(c=>[c.id,c.name]),S.fch)}`:''}</div>`;
+ if(s=='ai')h=`<div class="row"><span class="hint">Accounts placed in the same months, routed AI-first or human-first by a randomised 80/20 split.</span></div>`;
+ return h}
+
+/* ============ render ============ */
+const $=q=>document.querySelector(q);
+const THEMES=[['light','Light','#16b568','#ffffff'],['night','Night','#2ed38a','#0b0f0e'],['sand','Sand','#2c6e5a','#efebe3']];
+let THEME=null;try{THEME=localStorage.getItem('rl-theme')}catch(e){}
+function render(){
+ TIPS=[];const sec=SECS.find(s=>s.id==S.sec),idx=SECS.indexOf(sec);
+ if(THEME)document.documentElement.dataset.theme=THEME;else delete document.documentElement.dataset.theme;
+ const curT=THEME||(matchMedia('(prefers-color-scheme: dark)').matches?'night':'light');
+ $('#nav').innerHTML='<div class="cap" style="padding:0 12px 8px">Sections</div>'+SECS.map((s,i)=>`<button data-sec="${s.id}" class="${s.id==S.sec?'on':''}"><span class="n">0${i+1}</span><span>${s.t}</span></button>`).join('');
+ $('#tabsM').innerHTML=SECS.map(s=>`<button data-sec="${s.id}" class="${s.id==S.sec?'on':''}">${s.t}</button>`).join('');
+ $('#themes').innerHTML=THEMES.map(t=>`<button data-theme="${t[0]}" class="${curT==t[0]?'on':''}"><span class="dots"><i style="background:${t[2]}"></i><i style="background:${t[3]}"></i></span>${t[1]}</button>`).join('');
+ $('#themesM').innerHTML=THEMES.map(t=>`<button data-theme="${t[0]}" title="${t[1]}" class="${curT==t[0]?'on':''}" style="background:${t[2]}"></button>`).join('');
+ $('#hNum').textContent='0'+(idx+1);$('#hTitle').textContent=sec.t;$('#hLead').textContent=sec.lead;
+ const per=['contacts','collections'].includes(S.sec)?`${fmtD(S.from)} – ${fmtD(S.to)} 2026 · by ${{d:'day',w:'week',m:'month'}[S.step]}`:S.sec=='funnel'?'Full weeks and months only':S.sec=='health'?'By month · data through Oct 21':S.sec=='ai'?'January – September':'Since Jan 1 by month · data through Oct 21';
+ $('#hEye').innerHTML=`<span>Section ${idx+1} of 8</span><i></i><em>${per}</em>`;
+ $('#barIn').innerHTML=toolbar();
+ $('#content').innerHTML={portfolio:secPortfolio,contacts:secContacts,collections:secCollections,clients:()=>secRank('clients'),segments:()=>secRank('segments'),health:secHealth,funnel:secFunnel,ai:secAI}[S.sec]();
+ const f=$('#fresh');f.classList.toggle('bad',S.brk);$('#freshT').textContent=S.brk?'Publishing blocked':'Data through Oct 21';$('#freshS').textContent=S.brk?'1 of 14 checks failed · showing the Oct 20 snapshot ›':'built Oct 22, 06:10 · 14/14 checks passed ›';
 }
+function anim(){const c=$('#content');c.style.animation='none';void c.offsetWidth;c.style.animation=''}
+function setPer(p){S.per=p;S.to=ND-1;S.from=p=='ytd'?0:p=='30'?ND-30:p=='7'?ND-7:p=='q'?mOf(ND-1)>=3?Date.UTC(2026,mOf(ND-1)-3,1)/864e5-START/864e5:0:0;
+ if(p=='7')S.step='d';if(p=='30'&&S.step=='m')S.step='w';if(p=='ytd'&&S.step=='d')S.step='m'}
 
-// ---------- line chart ----------
-function renderLine(){
-  const svg = document.getElementById("lineChart"), W=600,H=300,m={l:44,r:78,t:12,b:30};
-  const days=+fDays.value, weeks=Math.floor(days/7), start=DAYS-weeks*7;
-  const series = LENDERS.map((L,i)=>({L, color:css(SERIES[i]), pts:[...Array(weeks)].map((_,w)=>{
-    const a=accounts.filter(x=>x.lender===L.id && x.day>=start+w*7 && x.day<start+w*7+7); return METRICS.recoveryRate.f(a); })}));
-  const all=series.flatMap(s=>s.pts), lo=Math.floor(Math.min(...all)*20)/20, hi=Math.ceil(Math.max(...all)*20)/20, nt=Math.round((hi-lo)/0.05);
-  const X=w=>m.l+(W-m.l-m.r)*(weeks===1?0.5:w/(weeks-1)), Y=v=>m.t+(H-m.t-m.b)*(1-(v-lo)/(hi-lo||1));
-  const focus=fBank.value;
-  let g="";
-  for(let k=0;k<=nt;k++){const v=lo+0.05*k;g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css("--grid")}"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="${css("--muted")}">${(v*100).toFixed(0)}%</text>`;}
-  [0,Math.floor((weeks-1)/2),weeks-1].forEach(w=>g+=`<text x="${X(w)}" y="${H-10}" text-anchor="middle" font-size="11" fill="${css("--muted")}">wk ${w+1}</text>`);
-  const ends=[];
-  series.forEach(s=>{const dim=focus!=="all"&&focus!==s.L.id;const d=s.pts.map((v,w)=>`${w?"L":"M"}${X(w).toFixed(1)},${Y(v).toFixed(1)}`).join("");
-    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="${dim?0.25:1}"/>`;
-    ends.push({y:Y(s.pts[weeks-1]),s,dim});});
-  ends.sort((a,b)=>a.y-b.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<14) ends[i].y=ends[i-1].y+14;
-  ends.forEach(e=>g+=`<text class="halo" x="${X(weeks-1)+8}" y="${e.y+4}" font-size="12" fill="${css("--text-secondary")}" opacity="${e.dim?0.4:1}">${e.s.L.name.replace("Lender ","")} ${(e.s.pts[weeks-1]*100).toFixed(1)}%</text>`);
-  g+=`<line id="xh" y1="${m.t}" y2="${H-m.b}" stroke="${css("--axis")}" stroke-dasharray="3 3" visibility="hidden"/><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="transparent" id="hit"/>`;
-  svg.innerHTML=g;
-  document.getElementById("lineLegend").innerHTML=series.map(s=>`<span><i style="background:${s.color}"></i>${s.L.name} (${s.L.cur})</span>`).join("");
-  const hit=svg.querySelector("#hit"), xh=svg.querySelector("#xh");
-  hit.onmousemove=e=>{const r=svg.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,w=Math.max(0,Math.min(weeks-1,Math.round((px-m.l)/((W-m.l-m.r)/Math.max(1,weeks-1)))));
-    xh.setAttribute("x1",X(w));xh.setAttribute("x2",X(w));xh.setAttribute("visibility","visible");
-    showTip(e,`<b>Week ${w+1}</b>`+series.slice().sort((a,b)=>b.pts[w]-a.pts[w]).map(s=>`<div><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s.color};margin-right:6px"></i>${s.L.name}: ${(s.pts[w]*100).toFixed(1)}%</div>`).join(""));};
-  hit.onmouseleave=()=>{xh.setAttribute("visibility","hidden");hideTip();};
-}
-
-// ---------- funnel ----------
-function renderFunnel(a){
-  const svg=document.getElementById("funnel"),W=400;
-  const st=[["Placed",a.length],["Contacted",sum(a,x=>x.contacted)],["Promised to pay",sum(a,x=>x.promise)],["Paid",sum(a,x=>x.paid)]];
-  const ramp=["--ramp-1","--ramp-2","--ramp-3","--ramp-4"], max=st[0][1]; let g="";
-  st.forEach(([name,v],i)=>{const y=12+i*70,w=Math.max(4,(W-140)*v/max);
-    g+=`<text x="0" y="${y+12}" font-size="12.5" fill="${css("--text-secondary")}">${name}</text>`;
-    g+=`<rect x="0" y="${y+20}" width="${w}" height="26" rx="4" fill="${css(ramp[i])}" data-t="${name}: ${v.toLocaleString("en-US")} accounts (${(v/max*100).toFixed(1)}% of placed)"/>`;
-    g+=`<text x="${w+8}" y="${y+38}" font-size="12.5" fill="${css("--text-primary")}">${v.toLocaleString("en-US")}</text>`;
-    if(i) g+=`<text x="${W}" y="${y+38}" text-anchor="end" font-size="12" fill="${css("--muted")}">−${(100-v/st[i-1][1]*100).toFixed(0)}% from prev.</text>`;});
-  svg.innerHTML=g; svg.querySelectorAll("rect").forEach(r=>{r.onmousemove=e=>showTip(e,r.dataset.t);r.onmouseleave=hideTip;});
-}
-
-// ---------- reconciliation ----------
-function ledgerTotals(a){ // independent source: payments ledger (built from raw payments, not from the pipeline)
-  const t={}; a.filter(x=>x.paid).forEach(x=>t[x.lender]=(t[x.lender]||0)+x.paidAmt); return t; }
-function pipelineTotals(a, broken){
-  const t=ledgerTotals(a);
-  if(broken && t.C!==undefined){ const dayMax=Math.max(...a.filter(x=>x.lender==="C").map(x=>x.day)); t.C += sum(a.filter(x=>x.lender==="C"&&x.day===dayMax&&x.paid),x=>x.paidAmt); }
-  return t; }
-let reconOk = true;
-function renderRecon(a){
-  const broken=document.getElementById("breakIt").checked, L=ledgerTotals(a), P=pipelineTotals(a,broken);
-  const rows=LENDERS.filter(l=>L[l.id]!==undefined).map(l=>{const d=(P[l.id]||0)-(L[l.id]||0),ok=Math.abs(d)<0.5;return {l,p:P[l.id]||0,g:L[l.id]||0,d,ok};});
-  reconOk=rows.every(r=>r.ok);
-  const f=(v,c)=>v.toLocaleString("en-US",{maximumFractionDigits:0})+" "+c;
-  document.getElementById("reconTable").innerHTML=`<tr><th>Lender</th><th class="num">Pipeline (collected)</th><th class="num">Payments ledger</th><th class="num">Difference</th><th>Check</th></tr>`+
-    rows.map(r=>`<tr><td>${r.l.name}</td><td class="num">${f(r.p,r.l.cur)}</td><td class="num">${f(r.g,r.l.cur)}</td><td class="num">${f(r.d,r.l.cur)}</td><td class="status ${r.ok?"ok":"bad"}">${r.ok?"✓ match":"✕ mismatch"}</td></tr>`).join("");
-  document.getElementById("reconBanner").innerHTML = reconOk
-    ? `<div class="banner ok"><span class="status ok">✓ All lenders reconcile</span><span>Report can be published.</span><button class="primary" type="button">Publish report</button></div>`
-    : `<div class="banner bad"><span class="status bad">✕ Publishing blocked</span><span>Pipeline and ledger disagree — fix the source, not the dashboard.</span><button class="primary" type="button" disabled>Publish report</button></div>`;
-  document.getElementById("csvBtn").disabled = !reconOk;
-}
-
-// ---------- A/B readout ----------
-function renderAB(a){
-  const A=a.filter(x=>x.arm==="A"), B=a.filter(x=>x.arm==="B");
-  const pa=sum(A,x=>x.paid)/A.length, pb=sum(B,x=>x.paid)/B.length, d=pb-pa;
-  const se=Math.sqrt(pa*(1-pa)/A.length+pb*(1-pb)/B.length), lo=d-1.96*se, hi=d+1.96*se;
-  const pp=(pa*A.length+pb*B.length)/(A.length+B.length), seP=Math.sqrt(pp*(1-pp)*(1/A.length+1/B.length)), z=d/seP;
-  const pval=2*(1-normCdf(Math.abs(z))), sig=pval<0.05;
-  document.getElementById("abTable").innerHTML=`<tr><th>Arm</th><th class="num">Accounts</th><th class="num">Paid</th><th class="num">Paid rate</th></tr>
-    <tr><td>A · current script</td><td class="num">${A.length.toLocaleString("en-US")}</td><td class="num">${sum(A,x=>x.paid).toLocaleString("en-US")}</td><td class="num">${(pa*100).toFixed(2)}%</td></tr>
-    <tr><td>B · empathetic opener</td><td class="num">${B.length.toLocaleString("en-US")}</td><td class="num">${sum(B,x=>x.paid).toLocaleString("en-US")}</td><td class="num">${(pb*100).toFixed(2)}%</td></tr>
-    <tr><td>Difference (B − A)</td><td></td><td></td><td class="num">${d>=0?"+":""}${(d*100).toFixed(2)} pp</td></tr>
-    <tr><td>p-value</td><td></td><td></td><td class="num">${pval<0.001?"<0.001":pval.toFixed(3)}</td></tr>`;
-  const svg=document.getElementById("abChart"),W=560,m={l:20,r:20}, span=Math.max(Math.abs(lo),Math.abs(hi),0.01)*1.25;
-  const X=v=>m.l+(W-m.l-m.r)*(v+span)/(2*span); let g="";
-  [-span,-span/2,0,span/2,span].forEach(v=>g+=`<line x1="${X(v)}" x2="${X(v)}" y1="30" y2="120" stroke="${v===0?css("--axis"):css("--grid")}" stroke-width="${v===0?1.5:1}"/><text x="${X(v)}" y="140" text-anchor="middle" font-size="11" fill="${css("--muted")}">${v>0?"+":""}${(v*100).toFixed(1)} pp</text>`);
-  g+=`<text x="${X(0)}" y="22" text-anchor="middle" font-size="11" fill="${css("--muted")}">no effect</text>`;
-  g+=`<line x1="${X(lo)}" x2="${X(hi)}" y1="75" y2="75" stroke="${css("--s1")}" stroke-width="2"/>`;
-  [lo,hi].forEach(v=>g+=`<line x1="${X(v)}" x2="${X(v)}" y1="67" y2="83" stroke="${css("--s1")}" stroke-width="2"/>`);
-  g+=`<circle cx="${X(d)}" cy="75" r="6" fill="${css("--s1")}" stroke="${css("--card")}" stroke-width="2" id="abDot"/>`;
-  g+=`<text class="halo" x="${X(d)}" y="104" text-anchor="middle" font-size="12" fill="${css("--text-primary")}">${d>=0?"+":""}${(d*100).toFixed(2)} pp [${(lo*100).toFixed(2)}, ${(hi*100).toFixed(2)}]</text>`;
-  g+=`<text x="${W/2}" y="162" text-anchor="middle" font-size="11.5" fill="${css("--text-secondary")}">Paid rate, B − A, with 95% confidence interval</text>`;
-  svg.innerHTML=g; const dot=svg.querySelector("#abDot"); dot.onmousemove=e=>showTip(e,`<b>B − A</b>${(d*100).toFixed(2)} pp<br>95% CI ${(lo*100).toFixed(2)} … ${(hi*100).toFixed(2)} pp<br>z = ${z.toFixed(2)}`); dot.onmouseleave=hideTip;
-  const mde = 2.8*seP; // ~80% power at alpha 0.05
-  document.getElementById("abVerdict").innerHTML = sig
-    ? `<strong>Verdict: real lift.</strong> The interval excludes zero (p ${pval<0.001?"&lt; 0.001":"= "+pval.toFixed(3)}). Before rollout I'd still check sample-ratio mismatch, guardrails (complaints, opt-outs) and whether the lift holds per lender.`
-    : `<strong>Verdict: can't call it yet.</strong> The interval includes zero (p = ${pval.toFixed(3)}). With this sample the smallest detectable lift is ≈ ${(mde*100).toFixed(2)} pp — keep the test running or pool more lenders rather than shipping on noise.`;
-}
-function normCdf(x){const t=1/(1+0.2316419*x),d=0.3989423*Math.exp(-x*x/2);return 1-d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));}
-
-// ---------- invoices ----------
-let invRows=[];
-function renderInvoices(a){
-  const t=ledgerTotals(a);
-  invRows=LENDERS.filter(l=>t[l.id]!==undefined).map(l=>{const coll=t[l.id],fee=coll*l.fee;return {lender:l.name,currency:l.cur,collected:coll,feeRate:l.fee,invoice:fee,fx:l.fx,invoiceUsd:fee*l.fx};});
-  const f=v=>v.toLocaleString("en-US",{maximumFractionDigits:0}); const tot=invRows.reduce((s,r)=>s+r.invoiceUsd,0);
-  document.getElementById("invTable").innerHTML=`<tr><th>Lender</th><th>Currency</th><th class="num">Collected</th><th class="num">Success fee</th><th class="num">Invoice</th><th class="num">FX → USD</th><th class="num">Invoice, USD</th></tr>`+
-    invRows.map(r=>`<tr><td>${r.lender}</td><td>${r.currency}</td><td class="num">${f(r.collected)}</td><td class="num">${(r.feeRate*100).toFixed(0)}%</td><td class="num">${f(r.invoice)}</td><td class="num">${r.fx}</td><td class="num">${f(r.invoiceUsd)}</td></tr>`).join("")+
-    `<tr><td><strong>Total</strong></td><td></td><td></td><td></td><td></td><td></td><td class="num"><strong>${f(tot)}</strong></td></tr>`;
-}
-document.getElementById("csvBtn").onclick=()=>{
-  if(!reconOk) return;
-  const head="lender,currency,collected,fee_rate,invoice,fx_to_usd,invoice_usd\n";
-  const body=invRows.map(r=>[r.lender,r.currency,r.collected.toFixed(2),r.feeRate,r.invoice.toFixed(2),r.fx,r.invoiceUsd.toFixed(2)].join(",")).join("\n");
-  const url=URL.createObjectURL(new Blob([head+body],{type:"text/csv"})); const el=document.createElement("a"); el.href=url; el.download="invoices_demo.csv"; el.click(); URL.revokeObjectURL(url);
-};
-
-// ---------- wiring ----------
-function render(){ const a=selected(); renderTiles(a); renderLine(); renderFunnel(a); renderRecon(a); renderAB(a); renderInvoices(a); }
-[fBank,fDays].forEach(el=>el.onchange=render); document.getElementById("breakIt").onchange=render;
-document.getElementById("themeBtn").onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches; r.dataset.theme=dark?"light":"dark"; render();};
+/* ============ events ============ */
+document.addEventListener('click',e=>{const t=e.target.closest('button,tr[data-ai]');if(!t||t.closest('#modal'))return;const d=t.dataset;let a=false;
+ if(d.sec){S.sec=d.sec;S.card=null;S.q='';S.exp=null;S.size='top';a=true;try{history.replaceState(null,'','#'+d.sec)}catch(_){}window.scrollTo(0,0)}
+ else if(d.set){const k=d.set,v=d.v;if(k=='per')setPer(v);else if(k=='mon')S.mon=+v;else S[k]=v;if(k=='pay'&&v!='plan')S.plan='all';if(k=='size')S.card=null;if(k=='step'&&v=='d'&&S.to-S.from>120){S.from=S.to-59;S.per='custom'}}
+ else if(d.mk){if(S.mk.has(d.mk)){if(S.mk.size>1)S.mk.delete(d.mk)}else S.mk.add(d.mk);S.card=null}
+ else if(d.sub!=null){S.sub[S.sec]=+d.sub;a=true;window.scrollTo(0,0)}
+ else if(d.how){S.how[d.how]=!S.how[d.how]}
+ else if(d.excl){S.excl=!S.excl}
+ else if(d.card){S.card=+d.card<0?null:+d.card}
+ else if(d.ctab){S.ctab=+d.ctab}
+ else if(d.sort){S.sort=d.sort}
+ else if(d.exp){S.exp=S.exp===+d.exp?null:+d.exp}
+ else if(d.ai){S.ai=+d.ai}
+ else if(d.theme){THEME=d.theme;try{localStorage.setItem('rl-theme',THEME)}catch(_){}}
+ else if(d.clr){S.client=null}
+ else if(d.pick){S.client=+d.pick}
+ else if(d.csv){csv(d.csv);return}
+ else if(t.id=='fresh'){openChecks();return}
+ else if(t.id=='tvBtn'){tv(true);return}
+ else return;
+ render();if(a)anim()});
+document.addEventListener('change',e=>{if(e.target.id=='dFrom'||e.target.id=='dTo'){const v=Math.round((Date.parse(e.target.value)-START)/864e5);if(isNaN(v))return;
+ if(e.target.id=='dFrom')S.from=Math.max(0,Math.min(v,S.to));else S.to=Math.min(ND-1,Math.max(v,S.from));S.per='custom';render()}});
+document.addEventListener('input',e=>{const id=e.target.id;
+ if(id=='rq'||id=='aiq'){S.q=e.target.value;const pos=e.target.selectionStart;render();const n=$('#'+id);n.focus();n.setSelectionRange(pos,pos)}
+ if(id=='cs')sugg(e.target.value)});
+document.addEventListener('focusin',e=>{if(e.target.id=='cs')sugg(e.target.value)});
+document.addEventListener('mousedown',e=>{if(!e.target.closest('.search')){const s=$('#sugg');if(s)s.classList.remove('on')}});
+function sugg(q){const s=$('#sugg');if(!s)return;const ql=q.trim().toLowerCase();const it=c=>`<button data-pick="${c.id}"><b>${esc(c.name)}</b><small>${esc(c.legal)} · ${MKTS.find(m=>m.id==c.mk).name} · ${c.port.length} portfolio${c.port.length>1?'s':''}</small></button>`;
+ const big=CL.slice().sort((a,b)=>b.m.reduce((x,y)=>x+y,0)-a.m.reduce((x,y)=>x+y,0));
+ s.innerHTML=ql?(CL.filter(c=>(c.name+' '+c.legal+' '+c.port.join(' ')).toLowerCase().includes(ql)).slice(0,8).map(it).join('')||'<div class="hint" style="padding:8px">nothing found</div>'):`<div class="cap">You often view</div>${[0,6,15].map(i=>it(CL[i])).join('')}<div class="cap">Largest by collections</div>${big.slice(0,5).map(it).join('')}`;s.classList.add('on')}
+const tip=$('#tip');
+document.addEventListener('mousemove',e=>{const g=e.target.closest&&e.target.closest('[data-tip]');if(!g||!TIPS[g.dataset.tip]){tip.style.opacity=0;return}
+ tip.innerHTML=TIPS[g.dataset.tip];tip.style.opacity=1;const w=tip.offsetWidth,h=tip.offsetHeight;let x=e.clientX+14,y=e.clientY-h-12;if(x+w>innerWidth-8)x=e.clientX-w-14;if(y<8)y=e.clientY+16;tip.style.left=x+'px';tip.style.top=y+'px'});
+document.addEventListener('scroll',()=>tip.style.opacity=0,{passive:true});
+function openChecks(){const C=[
+ ['Gross collected = payments ledger','per market and day, tolerance 0.1%',S.brk?'UK, Oct 20: +4.9%':'max diff 0.02%',!S.brk],
+ ['Promises: kept + broken + open = promised','every channel and day','0 rows off',true],
+ ['Fees = gross × contract rate','5 markets, contract table v14','0 rows off',true],
+ ['No duplicate payment IDs','after the nightly load',S.brk?'1,912 duplicates':'0 duplicates',!S.brk?true:true],
+ ['Funnel steps never increase','each step ≤ the step before','0 violations',true],
+ ['Monthly uniques ≤ sum of daily uniques','accounts, payers, agents','ok',true],
+ ['Client totals add up to market totals','48 clients → 5 markets','max diff 0.00%',true],
+ ['Segment split sums to client total','12 segments, 72/28','ok',true],
+ ['Test clients excluded','name or legal entity ~ test, sandbox','3 excluded',true],
+ ['Disputed accounts flagged','dispute table joined by account','2.9% flagged',true],
+ ['Currency rates loaded for every day','daily reference rates','294 of 294 days',true],
+ ['Partial month marked','last month ≠ full month','Oct marked *',true],
+ ['Load finished on time','before 06:30 local','06:10',true],
+ ['Row counts within ±3σ of the last 30 days','placements, contacts, payments',S.brk?'payments UK +3.4σ':'ok',true]];
+ const failed=C.filter(c=>!c[3]).length;
+ $('#modalBox').innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div class="h" style="font-size:22px;font-weight:800">Data checks</div><div class="hint" style="font-size:12.5px;margin-top:4px">Run after every nightly build. If any check fails, the new build is not published and the dashboard keeps the last good snapshot. Numbers on every page come from the same metric definitions, so one check covers all sections.</div></div><button class="x" data-close="1">✕</button></div>
+ <div style="margin:14px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span class="tag ${failed?'dead':''}">${failed?'Blocked · '+(14-failed)+' of 14 passed':'Published · 14 of 14 passed'}</span><button class="tog ${S.brk?'on':''}" data-brk="1">Simulate a double-loaded day in the UK</button></div>
+ ${C.map(c=>`<div class="chk"><span class="${c[3]?'ok':'no'}">${c[3]?'✓':'✕'}</span><span>${c[0]}<small>${c[1]}</small></span><span class="hint" style="color:${c[3]?'var(--muted)':'var(--down)'}">${c[2]}</span></div>`).join('')}`;
+ $('#modal').classList.add('on')}
+$('#modal').addEventListener('click',e=>{if(e.target.id=='modal'||e.target.closest('[data-close]')){$('#modal').classList.remove('on');return}
+ if(e.target.closest('[data-brk]')){S.brk=!S.brk;render();openChecks()}});
+function csv(kind){let rows;
+ if(kind=='pivot'){const ms=activeMk(),bs=buckets(S.from,S.to,'m');rows=[['month','channel','attempts','reached','promised_usd','kept_usd']];
+  bs.forEach(b=>CH.forEach(c=>{const g=k=>ms.reduce((a,m)=>a+sumC(m.id,k,b.ids,c.id),0);rows.push([b.lab,c.name,Math.round(g('att')),Math.round(g('reach')),g('pamt').toFixed(0),g('kept').toFixed(0)])}))}
+ else{const a=AIV[S.ai];rows=[['segment','month','ai_collected_usd','human_collected_usd']];a.mAI.forEach((v,i)=>rows.push([a.name,MONL[i],v.toFixed(0),a.mH[i].toFixed(0)]))}
+ const u=URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')],{type:'text/csv'})),l=document.createElement('a');
+ l.href=u;l.download=kind=='pivot'?'contacts_pivot.csv':'ai_vs_human_'+AIV[S.ai].name.replace(/\W+/g,'_').toLowerCase()+'.csv';l.click();setTimeout(()=>URL.revokeObjectURL(u),500)}
+let tvT=null;
+function tv(on){document.body.classList.toggle('tv',on);clearInterval(tvT);if(!on)return;
+ try{const p=document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();if(p&&p.catch)p.catch(()=>{})}catch(_){}
+ const run=()=>{const p=$('#tvprog');p.style.animation='none';void p.offsetWidth;p.style.animation='prog 10s linear'};run();
+ tvT=setInterval(()=>{const i=SECS.findIndex(s=>s.id==S.sec);S.sec=SECS[(i+1)%SECS.length].id;S.card=null;render();anim();window.scrollTo(0,0);run()},10000)}
+document.addEventListener('keydown',e=>{if(e.key=='Escape'){tv(false);$('#modal').classList.remove('on')}});
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&document.body.classList.contains('tv'))tv(false)});
 render();
 </script>
 </body>
